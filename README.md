@@ -6,8 +6,8 @@ Built by **Priyankkumar Patel** for the Caprae Capital Full Stack Developer (AI)
 
 | | |
 |---|---|
-| **Live demo** | https://priyank1510.github.io/saasquatch-triage/ (open it and click *Load sample export*) |
-| **Video walkthrough (2 min)** | _Link coming soon_ |
+
+| **Video walkthrough (2 min)** | Triage_demo_with_captions.mp4 |(shown above click it)
 | **Run locally** | [Setup instructions](#run-it) |
 
 Triage takes a raw lead export (SaaSquatch or any CSV), cleans it, validates every contact, and scores each company against a thesis you control. It then sorts the list into four next steps: who to **contact now**, which strong fits are **worth a credit to enrich**, what to **hold**, and what to **skip**. Every score shows exactly why it is what it is.
