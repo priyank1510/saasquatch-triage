@@ -1,0 +1,5 @@
+.git
+dist
+**/__pycache__
+**/*.db*
+tests

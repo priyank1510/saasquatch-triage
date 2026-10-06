@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Triage for SaaSquatch exports</title>
+  <meta name="description" content="Clean, dedupe, validate and rank a SaaSquatch lead export so you only spend enrichment credits on leads that fit.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to results</a>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="28" height="28"><path d="M4 7h24l-9 10v8l-6 3V17z" fill="currentColor"/></svg>
+      </span>
+      <div>
+        <h1>Triage</h1>
+        <p class="brand-sub">Rank a SaaSquatch export before you spend credits</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="apiStatus" class="api-status" role="status" aria-live="polite">Checking API…</span>
+      <label class="btn btn-quiet" for="fileInput">Import CSV</label>
+      <input id="fileInput" type="file" accept=".csv,text/csv,.tsv,.txt" hidden>
+      <button id="sampleBtn" class="btn btn-quiet" type="button">Load sample export</button>
+      <div class="menu" id="listMenuWrap" hidden>
+        <button id="saveListBtn" class="btn btn-quiet" type="button" disabled>Save list</button>
+        <button id="openListBtn" class="btn btn-quiet" type="button">Saved lists</button>
+      </div>
+      <details class="menu export-menu" id="exportMenu">
+        <summary class="btn btn-primary" aria-disabled="true">Export</summary>
+        <div class="menu-panel" role="menu">
+          <button type="button" data-export="hubspot" role="menuitem"><strong>Contact now → HubSpot</strong><span>People you can reach today, in HubSpot's import format</span></button>
+          <button type="button" data-export="enrich" role="menuitem"><strong>Enrichment queue</strong><span>Strong-fit companies worth a SaaSquatch credit</span></button>
+          <button type="button" data-export="ranked" role="menuitem"><strong>Full ranked list</strong><span>Every company with score, tier, reasons and data issues</span></button>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <section id="funnel" class="funnel" aria-label="What happened to your export" hidden></section>
+
+  <div class="layout">
+    <aside class="thesis" id="thesis" aria-label="Your thesis">
+      <div class="thesis-head">
+        <h2>Your thesis</h2>
+        <button id="resetThesis" class="link-btn" type="button">Reset</button>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="What are these leads for?">
+        <button type="button" role="radio" data-mode="acquisition">Acquisition sourcing</button>
+        <button type="button" role="radio" data-mode="sales">Sales outreach</button>
+      </div>
+      <p class="mode-help" id="modeHelp"></p>
+
+      <fieldset class="group">
+        <legend>Target revenue</legend>
+        <div class="pair">
+          <label><span>From</span><span class="affix"><span>$</span><input id="revMin" type="number" min="0" step="0.5" inputmode="decimal"><span>M</span></span></label>
+          <label><span>To</span><span class="affix"><span>$</span><input id="revMax" type="number" min="0" step="0.5" inputmode="decimal"><span>M</span></span></label>
+        </div>
+      </fieldset>
+      <fieldset class="group">
+        <legend>Team size</legend>
+        <div class="pair">
+          <label><span>From</span><input id="empMin" type="number" min="0" step="5" inputmode="numeric"></label>
+          <label><span>To</span><input id="empMax" type="number" min="0" step="5" inputmode="numeric"></label>
+        </div>
+      </fieldset>
+      <fieldset class="group">
+        <legend>Years in business, at least</legend>
+        <input id="minYears" type="number" min="0" max="100" step="1" inputmode="numeric">
+      </fieldset>
+      <fieldset class="group">
+        <legend>Industries in scope</legend>
+        <div id="industryList" class="checks"></div>
+      </fieldset>
+      <fieldset class="group">
+        <legend>What matters most</legend>
+        <p class="hint">Drag to re-weight. The list re-ranks as you go.</p>
+        <div id="weights" class="weights"></div>
+      </fieldset>
+      <fieldset class="group">
+        <legend>First-touch message</legend>
+        <p class="hint">Placeholders: {first} {company} {city} {industry} {employees} {years} {tenure_line}</p>
+        <textarea id="template" rows="9" spellcheck="true"></textarea>
+      </fieldset>
+    </aside>
+
+    <main id="main" class="results" tabindex="-1">
+      <div id="empty" class="empty">
+        <div class="drop" id="dropZone">
+          <h2>Drop a SaaSquatch export here</h2>
+          <p>Any CSV works. Columns are detected automatically and you can fix the mapping before anything is scored.</p>
+          <div class="drop-actions">
+            <label class="btn btn-primary" for="fileInput">Choose a CSV</label>
+            <button class="btn btn-quiet" type="button" data-action="sample">Try the sample export</button>
+          </div>
+          <p class="fine">Rows are processed in this browser. When the API is connected, only domain names are sent, for DNS checks.</p>
+        </div>
+        <ol class="how">
+          <li><strong>Clean.</strong> Duplicate companies are merged, keeping the best contact from each copy.</li>
+          <li><strong>Validate.</strong> Malformed, disposable and shared-inbox emails are flagged; domains are checked for mail servers.</li>
+          <li><strong>Rank.</strong> Every company is scored against your thesis, with the reasons shown.</li>
+          <li><strong>Act.</strong> Contact the reachable ones now and enrich only the strong fits that are missing an owner.</li>
+        </ol>
+      </div>
+
+      <div id="board" hidden>
+        <div class="board-head">
+          <div class="tabs" role="tablist" aria-label="Next step" id="tabs"></div>
+          <input id="search" type="search" placeholder="Search company, city, contact" aria-label="Search leads">
+        </div>
+        <div class="table-wrap">
+          <table class="leads" aria-describedby="tableCaption">
+            <caption id="tableCaption" class="sr-only">Leads ranked by fit score</caption>
+            <thead>
+              <tr><th scope="col" class="num">#</th><th scope="col">Score</th><th scope="col">Company</th><th scope="col">Fit signals</th><th scope="col">Contact</th><th scope="col">Next step</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="table-foot">
+          <span id="shownCount"></span>
+          <button id="moreBtn" class="btn btn-quiet" type="button" hidden>Show more</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <aside id="drawer" class="drawer" aria-label="Lead detail" hidden>
+    <div class="drawer-inner" id="drawerBody"></div>
+  </aside>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <dialog id="mapDialog" class="dialog" aria-labelledby="mapTitle">
+    <form method="dialog" id="mapForm">
+      <h2 id="mapTitle">Check the column mapping</h2>
+      <p class="hint" id="mapSummary"></p>
+      <div id="mapFields" class="map-grid"></div>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn btn-quiet" type="submit">Cancel</button>
+        <button value="ok" class="btn btn-primary" type="submit" id="mapConfirm">Score these leads</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="listsDialog" class="dialog" aria-labelledby="listsTitle">
+    <form method="dialog">
+      <h2 id="listsTitle">Saved lists</h2>
+      <div id="listsBody"></div>
+      <div class="dialog-actions"><button value="close" class="btn btn-quiet" type="submit">Close</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="saveDialog" class="dialog" aria-labelledby="saveTitle">
+    <form method="dialog" id="saveForm">
+      <h2 id="saveTitle">Save this list</h2>
+      <label class="stack"><span>Name</span><input id="saveName" type="text" maxlength="120" required></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn btn-quiet" type="submit" formnovalidate>Cancel</button>
+        <button value="ok" class="btn btn-primary" type="submit">Save list</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="sample-data.js"></script>
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

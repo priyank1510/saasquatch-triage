@@ -1,0 +1,1893 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Triage for SaaSquatch exports</title>
+  <meta name="description" content="Clean, dedupe, validate and rank a SaaSquatch lead export so you only spend enrichment credits on leads that fit.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+/* Triage — pine and fog from the SaaSquatch forest, Caprae gold reserved for the best leads. */
+:root {
+  --bg: #eef1ed;
+  --surface: #ffffff;
+  --surface-2: #f6f8f5;
+  --ink: #1d3a32;
+  --ink-2: #3f5a52;
+  --muted: #66766f;
+  --rule: #d3dad3;
+  --rule-strong: #b7c2b9;
+  --gold: #e1ae38;
+  --gold-ink: #3b2a05;
+  --moss: #5b8a63;
+  --slate: #8796a5;
+  --stone: #c3c9c3;
+  --alert: #b4442e;
+  --focus: #2f6fd6;
+  --f1: #2f5d50; --f2: #6f8fa8; --f3: #c9773b; --f4: #5b8a63; --f5: #9db47a; --f6: #e1ae38; --f7: #7b6a9b;
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --shadow-drawer: -12px 0 32px rgba(17, 38, 32, 0.16);
+  --font: 'Schibsted Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111a17; --surface: #18231f; --surface-2: #1d2a25; --ink: #e3ebe5; --ink-2: #c2cfc7; --muted: #92a39a;
+    --rule: #2b3934; --rule-strong: #3b4c45; --gold: #e8b949; --gold-ink: #2a1d02; --moss: #77a77f; --slate: #8d9cab;
+    --stone: #4c5a54; --alert: #e0735d; --focus: #7aa7ff;
+    --f1: #6fa596; --f2: #86a6bf; --f3: #d98f55; --f4: #77a77f; --f5: #aac487; --f6: #e8b949; --f7: #a593c6;
+    --shadow-drawer: -12px 0 32px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111a17; --surface: #18231f; --surface-2: #1d2a25; --ink: #e3ebe5; --ink-2: #c2cfc7; --muted: #92a39a;
+  --rule: #2b3934; --rule-strong: #3b4c45; --gold: #e8b949; --gold-ink: #2a1d02; --moss: #77a77f; --slate: #8d9cab;
+  --stone: #4c5a54; --alert: #e0735d; --focus: #7aa7ff;
+  --f1: #6fa596; --f2: #86a6bf; --f3: #d98f55; --f4: #77a77f; --f5: #aac487; --f6: #e8b949; --f7: #a593c6;
+  --shadow-drawer: -12px 0 32px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: inherit; }
+[hidden]:not(.drawer) { display: none !important; }
+a { color: var(--ink-2); text-underline-offset: 3px; }
+a:hover { color: var(--ink); }
+html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0; min-height: 100%;
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--font);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { margin: 0; line-height: 1.2; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip-link { position: absolute; left: -999px; top: 8px; background: var(--surface); padding: 6px 10px; border-radius: var(--radius-s); }
+.skip-link:focus { left: 8px; z-index: 50; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 0 14px;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-s);
+  background: var(--surface); color: var(--ink);
+  font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap;
+  user-select: none;
+}
+.btn:hover { border-color: var(--ink-2); }
+.btn-primary { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.btn-primary:hover { background: var(--ink-2); border-color: var(--ink-2); }
+.btn-quiet { background: transparent; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.link-btn { border: 0; background: none; padding: 0; color: var(--muted); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.link-btn:hover { color: var(--ink); }
+
+/* ---------- top bar ---------- */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--rule);
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 9px; background: var(--ink); color: var(--gold); }
+.brand h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.brand-sub { margin: 0; color: var(--muted); font-size: 13px; }
+.top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.api-status { font-size: 13px; color: var(--muted); padding-right: 6px; display: inline-flex; align-items: center; gap: 6px; }
+.api-status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--stone); }
+.api-status[data-state="online"]::before { background: var(--moss); }
+.api-status[data-state="busy"]::before { background: var(--gold); }
+
+.menu { position: relative; display: flex; gap: 8px; }
+.menu summary { list-style: none; }
+.menu summary::-webkit-details-marker { display: none; }
+.menu-panel {
+  position: absolute; right: 0; top: calc(100% + 6px); width: 300px; z-index: 30;
+  background: var(--surface); border: 1px solid var(--rule-strong); border-radius: var(--radius-m);
+  padding: 6px; box-shadow: 0 12px 28px rgba(17, 38, 32, 0.14);
+}
+.menu-panel button {
+  display: block; width: 100%; text-align: left; border: 0; background: none; padding: 10px 12px;
+  border-radius: var(--radius-s); cursor: pointer;
+}
+.menu-panel button:hover, .menu-panel button:focus-visible { background: var(--surface-2); }
+.menu-panel strong { display: block; font-size: 14px; }
+.menu-panel span { display: block; font-size: 12.5px; color: var(--muted); }
+
+/* ---------- funnel: the one loud element ---------- */
+.funnel {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.6fr); gap: 0;
+  background: var(--surface); border-bottom: 1px solid var(--rule);
+  padding: 18px 24px 20px;
+}
+.stage { padding-right: 18px; min-width: 0; }
+.stage + .stage { padding-left: 18px; border-left: 1px solid var(--rule); }
+.stage-n { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+.stage-label { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.stage-sub { font-size: 12px; color: var(--muted); }
+.sieve { height: 6px; background: var(--rule); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+.sieve > i { display: block; height: 100%; background: var(--ink-2); border-radius: 3px; transition: width 300ms ease; }
+.outcome { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.outcome-card { border-radius: var(--radius-m); padding: 12px 14px; cursor: pointer; border: 0; text-align: left; }
+.outcome-card.contact { background: var(--gold); color: var(--gold-ink); }
+.outcome-card.enrich { background: var(--ink); color: var(--bg); }
+.outcome-card .stage-n { font-size: 34px; }
+.outcome-card .stage-label { color: inherit; font-weight: 600; }
+.outcome-card .stage-sub { color: inherit; opacity: 0.82; }
+
+/* ---------- layout ---------- */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); align-items: start; }
+.thesis {
+  position: sticky; top: 69px; max-height: calc(100vh - 69px); overflow-y: auto;
+  padding: 20px 20px 40px; border-right: 1px solid var(--rule); background: var(--surface-2);
+}
+.thesis-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.thesis-head h2 { font-size: 16px; font-weight: 700; }
+.segmented { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--rule-strong); border-radius: var(--radius-s); overflow: hidden; }
+.segmented button { border: 0; background: var(--surface); padding: 8px 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.segmented button + button { border-left: 1px solid var(--rule-strong); }
+.segmented button[aria-checked="true"] { background: var(--ink); color: var(--bg); }
+.mode-help { font-size: 12.5px; color: var(--muted); margin: 8px 0 4px; }
+.group { border: 0; padding: 0; margin: 18px 0 0; }
+.group legend { font-size: 13px; font-weight: 700; padding: 0; margin-bottom: 8px; }
+.hint { font-size: 12px; color: var(--muted); margin: -2px 0 8px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair label, .stack { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+input[type="number"], input[type="text"], input[type="search"], textarea, select {
+  width: 100%; min-height: 34px; padding: 6px 8px; border: 1px solid var(--rule-strong); border-radius: var(--radius-s);
+  background: var(--surface); color: var(--ink); font-size: 14px;
+}
+.affix { display: flex; align-items: center; border: 1px solid var(--rule-strong); border-radius: var(--radius-s); background: var(--surface); padding: 0 8px; color: var(--muted); font-size: 14px; }
+.affix input { border: 0; padding: 6px 4px; min-height: 32px; background: transparent; }
+.affix input:focus-visible { outline: none; }
+.affix:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+textarea { resize: vertical; line-height: 1.45; font-size: 13px; }
+.checks { display: grid; gap: 6px; }
+.checks label { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.checks input { accent-color: var(--ink); width: 16px; height: 16px; }
+.weights { display: grid; gap: 10px; }
+.weight { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 4px 8px; font-size: 13px; }
+.weight .swatch { width: 10px; height: 10px; border-radius: 2px; }
+.weight output { font-size: 12px; color: var(--muted); min-width: 34px; text-align: right; }
+.weight input { grid-column: 1 / -1; accent-color: var(--ink); width: 100%; margin: 0; }
+
+.results { min-width: 0; padding: 18px 24px 48px; outline: none; }
+
+/* ---------- empty state ---------- */
+.empty { max-width: 760px; margin: 32px auto; }
+.drop {
+  border: 2px dashed var(--rule-strong); border-radius: 14px; padding: 40px 32px; background: var(--surface); text-align: left;
+}
+.drop.is-over { border-color: var(--ink); background: var(--surface-2); }
+.drop h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.015em; }
+.drop p { color: var(--ink-2); max-width: 60ch; }
+.drop-actions { display: flex; gap: 10px; margin: 18px 0 6px; flex-wrap: wrap; }
+.fine { font-size: 12.5px; color: var(--muted) !important; }
+.how { list-style: none; counter-reset: step; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px; }
+.how li { counter-increment: step; position: relative; padding-left: 32px; color: var(--ink-2); font-size: 14px; max-width: 46ch; }
+.how li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.how strong { color: var(--ink); }
+
+/* ---------- board ---------- */
+.board-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tab { border: 1px solid transparent; background: none; padding: 7px 12px; border-radius: 999px; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
+.tab .count { font-weight: 500; color: var(--muted); margin-left: 4px; }
+.tab[aria-selected="true"] { background: var(--surface); border-color: var(--rule-strong); color: var(--ink); }
+#search { max-width: 280px; }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-m); }
+table.leads { width: 100%; border-collapse: collapse; font-size: 14px; }
+.leads th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.leads td { padding: 11px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.leads tbody tr { cursor: pointer; }
+.leads tbody tr:hover { background: var(--surface-2); }
+.leads tbody tr[aria-current="true"] { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--ink); }
+.leads tbody tr:last-child td { border-bottom: 0; }
+.num { color: var(--muted); width: 40px; }
+.score { display: flex; align-items: center; gap: 8px; }
+.score b { font-size: 16px; font-weight: 700; min-width: 26px; }
+.tier { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; }
+.tier-A { background: var(--gold); color: var(--gold-ink); }
+.tier-B { background: var(--moss); color: #fff; }
+.tier-C { background: var(--slate); color: #fff; }
+.tier-D { background: var(--stone); color: var(--ink); }
+.co-name { font-weight: 600; }
+.sub { color: var(--muted); font-size: 12.5px; }
+.meta { display: flex; flex-wrap: wrap; column-gap: 12px; }
+.signals { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; color: var(--ink-2); max-width: 300px; }
+.contact-line { display: flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dot-ok { background: var(--moss); }
+.dot-warn { background: var(--gold); }
+.dot-bad { background: var(--alert); }
+.dot-none { background: var(--stone); }
+.queue { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.queue-contact { color: var(--ink); }
+.queue-enrich { color: var(--moss); }
+.queue-hold, .queue-skip { color: var(--muted); font-weight: 500; }
+.table-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; color: var(--muted); font-size: 13px; }
+.no-rows td { text-align: center; color: var(--muted); padding: 40px 12px; cursor: default; }
+
+/* ---------- drawer ---------- */
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); z-index: 40;
+  background: var(--surface); box-shadow: var(--shadow-drawer); overflow-y: auto;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  transform: translateX(0); transition: transform 180ms ease;
+}
+.drawer[hidden] { display: block; transform: translateX(105%); visibility: hidden; }
+.scrim { position: fixed; inset: 0; background: rgba(10, 20, 16, 0.25); z-index: 35; }
+.drawer-inner { padding: 22px 24px 40px; }
+.d-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.d-head h2 { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
+.close { border: 1px solid var(--rule-strong); background: var(--surface); width: 34px; height: 34px; border-radius: var(--radius-s); cursor: pointer; font-size: 18px; line-height: 1; flex: none; }
+.d-score { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 8px; }
+.d-score b { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.anatomy { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--rule); }
+.anatomy i { display: block; height: 100%; }
+.anatomy i + i { box-shadow: inset 1px 0 0 var(--surface); }
+.factors { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 9px; }
+.factor { display: grid; grid-template-columns: 10px 1fr auto; gap: 2px 8px; align-items: baseline; font-size: 13.5px; }
+.factor .swatch { width: 10px; height: 10px; border-radius: 2px; align-self: center; }
+.factor .pts { color: var(--muted); font-size: 12.5px; }
+.factor .note { grid-column: 2 / -1; color: var(--muted); font-size: 12.5px; }
+.d-section { margin-top: 24px; }
+.d-section h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.why { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 14px; }
+.why li { padding-left: 18px; position: relative; }
+.why li::before { position: absolute; left: 0; font-weight: 700; }
+.why .pos::before { content: '+'; color: var(--moss); }
+.why .neg::before { content: '!'; color: var(--alert); left: 3px; }
+.kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: 13.5px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; display: flex; gap: 6px; align-items: center; min-width: 0; overflow-wrap: anywhere; }
+.opener { width: 100%; min-height: 180px; font-size: 13.5px; }
+.d-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+/* ---------- dialogs ---------- */
+.dialog { border: 1px solid var(--rule-strong); border-radius: 14px; padding: 24px; width: min(640px, calc(100% - 24px)); background: var(--surface); color: var(--ink); }
+.dialog::backdrop { background: rgba(10, 20, 16, 0.4); }
+.dialog h2 { font-size: 19px; font-weight: 800; margin-bottom: 6px; }
+.map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin: 14px 0; max-height: 52vh; overflow-y: auto; }
+.map-grid label { display: grid; gap: 3px; font-size: 13px; font-weight: 600; }
+.map-grid .example { font-weight: 400; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.saved { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
+.saved li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--radius-s); }
+
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: var(--radius-s); font-size: 14px; z-index: 60; max-width: calc(100% - 32px); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1100px) {
+  .funnel { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 16px; }
+  .outcome { grid-column: 1 / -1; }
+}
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .results { order: 1; }
+  .thesis { order: 2; position: static; max-height: none; border-right: 0; border-top: 1px solid var(--rule); }
+  .topbar { position: static; padding: 12px 16px; }
+  .results { padding: 16px; }
+  .funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
+  .stage:nth-child(3) { padding-left: 0; border-left: 0; }
+  .how { grid-template-columns: 1fr; }
+  .leads th:nth-child(4), .leads td:nth-child(4) { display: none; }
+  .map-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+</style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to results</a>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="28" height="28"><path d="M4 7h24l-9 10v8l-6 3V17z" fill="currentColor"/></svg>
+      </span>
+      <div>
+        <h1>Triage</h1>
+        <p class="brand-sub">Rank a SaaSquatch export before you spend credits</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="apiStatus" class="api-status" role="status" aria-live="polite">Checking API…</span>
+      <label class="btn btn-quiet" for="fileInput">Import CSV</label>
+      <input id="fileInput" type="file" accept=".csv,text/csv,.tsv,.txt" hidden>
+      <button id="sampleBtn" class="btn btn-quiet" type="button">Load sample export</button>
+      <div class="menu" id="listMenuWrap" hidden>
+        <button id="saveListBtn" class="btn btn-quiet" type="button" disabled>Save list</button>
+        <button id="openListBtn" class="btn btn-quiet" type="button">Saved lists</button>
+      </div>
+      <details class="menu export-menu" id="exportMenu">
+        <summary class="btn btn-primary" aria-disabled="true">Export</summary>
+        <div class="menu-panel" role="menu">
+          <button type="button" data-export="hubspot" role="menuitem"><strong>Contact now → HubSpot</strong><span>People you can reach today, in HubSpot's import format</span></button>
+          <button type="button" data-export="enrich" role="menuitem"><strong>Enrichment queue</strong><span>Strong-fit companies worth a SaaSquatch credit</span></button>
+          <button type="button" data-export="ranked" role="menuitem"><strong>Full ranked list</strong><span>Every company with score, tier, reasons and data issues</span></button>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <section id="funnel" class="funnel" aria-label="What happened to your export" hidden></section>
+
+  <div class="layout">
+    <aside class="thesis" id="thesis" aria-label="Your thesis">
+      <div class="thesis-head">
+        <h2>Your thesis</h2>
+        <button id="resetThesis" class="link-btn" type="button">Reset</button>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="What are these leads for?">
+        <button type="button" role="radio" data-mode="acquisition">Acquisition sourcing</button>
+        <button type="button" role="radio" data-mode="sales">Sales outreach</button>
+      </div>
+      <p class="mode-help" id="modeHelp"></p>
+
+      <fieldset class="group">
+        <legend>Target revenue</legend>
+        <div class="pair">
+          <label><span>From</span><span class="affix"><span>$</span><input id="revMin" type="number" min="0" step="0.5" inputmode="decimal"><span>M</span></span></label>
+          <label><span>To</span><span class="affix"><span>$</span><input id="revMax" type="number" min="0" step="0.5" inputmode="decimal"><span>M</span></span></label>
+        </div>
+      </fieldset>
+      <fieldset class="group">
+        <legend>Team size</legend>
+        <div class="pair">
+          <label><span>From</span><input id="empMin" type="number" min="0" step="5" inputmode="numeric"></label>
+          <label><span>To</span><input id="empMax" type="number" min="0" step="5" inputmode="numeric"></label>
+        </div>
+      </fieldset>
+      <fieldset class="group">
+        <legend>Years in business, at least</legend>
+        <input id="minYears" type="number" min="0" max="100" step="1" inputmode="numeric">
+      </fieldset>
+      <fieldset class="group">
+        <legend>Industries in scope</legend>
+        <div id="industryList" class="checks"></div>
+      </fieldset>
+      <fieldset class="group">
+        <legend>What matters most</legend>
+        <p class="hint">Drag to re-weight. The list re-ranks as you go.</p>
+        <div id="weights" class="weights"></div>
+      </fieldset>
+      <fieldset class="group">
+        <legend>First-touch message</legend>
+        <p class="hint">Placeholders: {first} {company} {city} {industry} {employees} {years} {tenure_line}</p>
+        <textarea id="template" rows="9" spellcheck="true"></textarea>
+      </fieldset>
+    </aside>
+
+    <main id="main" class="results" tabindex="-1">
+      <div id="empty" class="empty">
+        <div class="drop" id="dropZone">
+          <h2>Drop a SaaSquatch export here</h2>
+          <p>Any CSV works. Columns are detected automatically and you can fix the mapping before anything is scored.</p>
+          <div class="drop-actions">
+            <label class="btn btn-primary" for="fileInput">Choose a CSV</label>
+            <button class="btn btn-quiet" type="button" data-action="sample">Try the sample export</button>
+          </div>
+          <p class="fine">Rows are processed in this browser. When the API is connected, only domain names are sent, for DNS checks.</p>
+        </div>
+        <ol class="how">
+          <li><strong>Clean.</strong> Duplicate companies are merged, keeping the best contact from each copy.</li>
+          <li><strong>Validate.</strong> Malformed, disposable and shared-inbox emails are flagged; domains are checked for mail servers.</li>
+          <li><strong>Rank.</strong> Every company is scored against your thesis, with the reasons shown.</li>
+          <li><strong>Act.</strong> Contact the reachable ones now and enrich only the strong fits that are missing an owner.</li>
+        </ol>
+      </div>
+
+      <div id="board" hidden>
+        <div class="board-head">
+          <div class="tabs" role="tablist" aria-label="Next step" id="tabs"></div>
+          <input id="search" type="search" placeholder="Search company, city, contact" aria-label="Search leads">
+        </div>
+        <div class="table-wrap">
+          <table class="leads" aria-describedby="tableCaption">
+            <caption id="tableCaption" class="sr-only">Leads ranked by fit score</caption>
+            <thead>
+              <tr><th scope="col" class="num">#</th><th scope="col">Score</th><th scope="col">Company</th><th scope="col">Fit signals</th><th scope="col">Contact</th><th scope="col">Next step</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="table-foot">
+          <span id="shownCount"></span>
+          <button id="moreBtn" class="btn btn-quiet" type="button" hidden>Show more</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <aside id="drawer" class="drawer" aria-label="Lead detail" hidden>
+    <div class="drawer-inner" id="drawerBody"></div>
+  </aside>
+  <div id="scrim" class="scrim" hidden></div>
+
+  <dialog id="mapDialog" class="dialog" aria-labelledby="mapTitle">
+    <form method="dialog" id="mapForm">
+      <h2 id="mapTitle">Check the column mapping</h2>
+      <p class="hint" id="mapSummary"></p>
+      <div id="mapFields" class="map-grid"></div>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn btn-quiet" type="submit">Cancel</button>
+        <button value="ok" class="btn btn-primary" type="submit" id="mapConfirm">Score these leads</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="listsDialog" class="dialog" aria-labelledby="listsTitle">
+    <form method="dialog">
+      <h2 id="listsTitle">Saved lists</h2>
+      <div id="listsBody"></div>
+      <div class="dialog-actions"><button value="close" class="btn btn-quiet" type="submit">Close</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="saveDialog" class="dialog" aria-labelledby="saveTitle">
+    <form method="dialog" id="saveForm">
+      <h2 id="saveTitle">Save this list</h2>
+      <label class="stack"><span>Name</span><input id="saveName" type="text" maxlength="120" required></label>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn btn-quiet" type="submit" formnovalidate>Cancel</button>
+        <button value="ok" class="btn btn-primary" type="submit">Save list</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script>
+window.TRIAGE_API_BASE = window.TRIAGE_API_BASE || "";
+</script>
+  <script>
+// Generated by scripts/build.py from data/sample_leads.csv. Synthetic data.
+window.TRIAGE_SAMPLE_CSV = "Company Name,Website,Industry,Employee Count,Estimated Revenue,Year Founded,City,State,Country,Owner Name,Owner Title,Email,Phone,LinkedIn\nCRESCENT SALON GROUP,crescentsalon.net,Hair Salon,1-10,$0.3M,2006,RALEIGH,NC,United States,Maria Johnson,General Manager,maria@crescentsalon.net,,\nCopper Precision Machining,https://copperprecision.net,Machine Shop / CNC Machining,40,$6M - $11M,2018,Nashville,TN,United States,,,office@copperprecision.net,,\nIronwood Physical Therapy Group,ironwoodphysical.net,Physical Therapy,11-50,$3.2M,,Columbus,OH,United States,Ahmed Patel,Co-Owner,ahmed@ironwoodphysical.net,(249) 581-1683,\nHillcrest Grill Group,https://hillcrestgrill.com,Restaurant,11-50,$2.1M,,Green Bay,WI,United States,Carlos Johnson,Marketing Coordinator,carlosjohnson25@gmail.com,704-494-3705,https://www.linkedin.com/in/carlos-johnson-728\nBluestem Software Group,bluestemsoftware.com,Software Development,51-200,\"12,149,588\",,Milwaukee,WI,United States,Gary Murphy,,gary@bluestemsoftware.com,+1 645 447 4790,\nPinecrest Staffing Co.,www.pinecreststaffing.net,Staffing Agency,11-50,$6M - $11M,2013,Phoenix,AZ,United States,,,,,\nBeacon Fitness,www.beaconfitness.com,Fitness Studio,18,$4M - $8M,,Phoenix,AZ,United States,Hannah Reyes,Owner,hannah@beaconfitness.com,(756) 476-7304,\nLakeshore Fitness,https://www.lakeshorefitness.co,Fitness Studio,11-50,$0.4M,2022,Boise,ID,United States,Kim Bennett,President,,+1 521 257 7801,https://www.linkedin.com/in/kim-bennett-885\nOak Ridge Coffee Co,http://oakridgecoffee.com/,Coffee Shop,4,\"45,945\",,Indianapolis,IN,United States,James Schmidt,Owner,hello@oakridgecoffee.com,457-4524,\nCopper Grill LLC,www.coppergrill.com,Restaurant,51-200,$0.9M,,Kansas City,MO,United States,Denise Okafor,Marketing Coordinator,denise@coppergrill.com,439-796-6222,\nNorthstar Staffing Co.,http://northstarstaffing.net/,Staffing Agency,51-200,$3414K,1990,Boise,ID,United States,Daniel Hernandez,Office Manager,office@northstarstaffing.net,369-332-2128,\nHeartland Heating & Cooling Co.,heartlandheating.net,HVAC Services,,,2013,Minneapolis,MN,United States,Priya Murphy,Owner,,,\nBEACON STAFFING,www.beaconstaffing.com,Staffing Agency,1-10,$23M - $28M,2015,GRAND RAPIDS,MI,United States,Mark Larson,Founder & CEO,mark@beaconstaffing.com,,\nCrescent Salon Group,crescentsalon.net,Hair Salon,1-10,$0.3M,2006,Raleigh,NC,United States,Maria Johnson,General Manager,maria@crescentsalon.net,,\nGranite Logistics LLC,https://www.granitelogistics.com/contact-us,Freight & Logistics,51-200,$4.9M,1998,Sacramento,CA,United States,,,,,\nArrowhead Precision Machining Group,http://arrowheadprecision.com/,Machine Shop / CNC Machining,51-200,$1.2M,2015,Boise,ID,United States,,,contact@arrowheadprecision.com,341.640.5561,\nValley Electric Co.,www.valleyelectric.net,Electrical Contractor,11-50,$11.2M,,Denver,CO,United States,Thomas Johnson,Operations Director,office@valleyelectric.net,576-4628,\nGranite Fitness Co.,http://granitefitness.net/,Fitness Studio,,$4M - $8M,1983,Indianapolis,IN,United States,Tanya Miller,Office Manager,hello@granitefitness.net,,\nHarbor Pest Solutions Inc.,https://www.harborpest.com,Pest Control,,$8304K,2018,Denver,CO,United States,Mark Okafor,Office Manager,info@harborpest.com,,\nSummit Animal Hospital LLC,http://summitanimal.com/,Veterinary Clinic,11-50,$1M - $2M,2012,Tampa,FL,United States,,,,271-532-8094,\nTri-County Family Dental Co.,https://tricountyfamily.com,Dental Practice,,$1M - $2M,1996,Boise,ID,United States,Brian Fischer,Owner,brian.fischer@tricountyfamily,,\nLiberty Grill,http://libertygrill.net/,Restaurant,1-10,,,Nashville,TN,United States,,,,,\nPinecrest Heating & Cooling Inc.,www.pinecrestheating.net,HVAC Services,11-50,,1980,Green Bay,WI,United States,,,,+1 750 857 1245,\nJuniper Grill Inc.,https://www.junipergrill.co,Restaurant,11-50,$4.3M,2012,Kansas City,MO,United States,Fatima Okafor,Owner,fatima@junipergrill.co,,\nSummit Family Dental,https://summitfamily.co,Dental Practice,1-10,$0.7M,2019,Nashville,TN,United States,Daniel Okafor,Founder & CEO,danielokafor25@gmail.com,973-920-3532,https://www.linkedin.com/in/daniel-okafor-293\nFrontier Fabrication,,Metal Fabrication,51-200,$22238K,2021,Milwaukee,WI,United States,Gary Anderson,Co-Owner,gary.anderson@frontierfabrication.com,408-761-2839,\nGranite Precision Machining Group,https://www.graniteprecision.com,Machine Shop / CNC Machining,11-50,4-8M,2023,Milwaukee,WI,United States,,,,,\nHeartland Pest Solutions,https://heartlandpest.com,Pest Control,11-50,\"5,070,626\",2000,Green Bay,WI,United States,,,,,\nSilverline Plumbing Group,silverlineplumbing.com,Plumbing Contractor,11-50,,1999,Green Bay,WI,United States,,,,,\nValley Insurance Agency Group,valleyinsurance.com,Insurance Agency,70,$1.6M,1994,Milwaukee,WI,United States,Raymond Murphy,President,,+1 755 241 5816,https://www.linkedin.com/in/raymond-murphy-178\nFrontier Logistics Inc.,http://frontierlogistics.co/,Freight & Logistics,201-500,$3.3M,1970,Nashville,TN,United States,,,,,\nGranite Physical Therapy Group,www.granitephysical.net,Physical Therapy,1-10,$3.4M,1998,Charlotte,NC,United States,,,hello@granitephysical.net,+1 325 664 1189,\nFrontier Facility Services,https://frontierfacility.com,Commercial Cleaning,21,,1972,Columbus,OH,United States,Grace Hernandez,General Manager,grace.hernandez@frontierfacility.com,,https://www.linkedin.com/in/grace-hernandez-374\nPinecrest Pest Solutions Group,https://www.pinecrestpest.com,Pest Control,,$1M - $2M,,Columbus,OH,United States,Fatima Garcia,Office Manager,,450-440-6721,\nBadger Staffing Co.,www.badgerstaffing.co,Staffing Agency,11-50,$9441K,1981,Nashville,TN,United States,,,info@badgerstaffing.co,(292) 347-7545,\nJuniper Pest Solutions Group,juniperpest.net,Pest Control,,$4.7M,1991,Denver,CO,United States,,,office@juniperpest.net,927.448.8234,\nCopper Animal Hospital,,Veterinary Clinic,,$3.8M,1993,Minneapolis,MN,United States,,,,248-267-6954,\nBadger Accounting Group,https://badgeraccounting.com,Bookkeeping & Payroll,11-50,11-15M,1980,Sacramento,CA,United States,Robert Sullivan,Owner,robert.sullivan@badgeraccounting.com,667.791.1015,\nRedwood Plumbing,,Plumbing Contractor,,23-27M,1981,Des Moines,IA,United States,Gary Sullivan,Office Manager,office@redwoodplumbing.com,+1 558 634 8250,https://www.linkedin.com/in/gary-sullivan-815\nSterling Precision Machining Co.,https://sterlingprecision.co,Machine Shop / CNC Machining,39,\"78,124,486\",2021,Green Bay,WI,United States,Denise Rossi,President,office@sterlingprecision.co,+1 202 529 5309,\nGranite Pest Solutions,granitepest.com,Pest Control,,2-6M,,Minneapolis,MN,United States,,,sales@granitepest.com,(919) 516-8340,\nMaple Electric Inc.,mapleelectric.com,Electrical Contractor,11-50,$5.5M,2013,Kansas City,MO,United States,Maria Miller,Marketing Coordinator,maria@mapleelectric.com,686.325.2889,https://www.linkedin.com/in/maria-miller-867\nBeacon Staffing,www.beaconstaffing.com,Staffing Agency,1-10,$23M - $28M,2015,Grand Rapids,MI,United States,Mark Larson,Founder & CEO,mark@beaconstaffing.com,,\nTri-County Plumbing,https://www.tricountyplumbing.net,Plumbing Contractor,,$937K,2016,Green Bay,WI,United States,Robert Kowalski,Office Manager,robert@@tricountyplumbing.net,,\nSilverline Animal Hospital Group,www.silverlineanimal.com,Veterinary Clinic,11-50,,,Denver,CO,United States,Daniel Larson,,daniel.larson@silverlineanimal.com,(293) 378-6602,\nSterling Grill Group,www.sterlinggrill.com,Restaurant,17,$402K,2013,Columbus,OH,United States,,,hello@sterlinggrill.com,(393) 622-3988,\nValley Heating & Cooling,www.valleyheating.com,HVAC Services,1-10,\"15,097,013\",2008,Sacramento,CA,United States,,,sales@valleyheating.com,+1 912 388 9103,\nSummit Facility Services,https://summitfacility.com,Commercial Cleaning,11-50,$0.5M,,Dallas,TX,United States,Daniel Novak,Founder & CEO,daniel.novak@summitfacility.com,(567) 588-4056,https://www.linkedin.com/in/daniel-novak-992\nFrontier Landscapes LLC,https://www.frontierlandscapes.com,Landscaping & Lawn Care,,,,Green Bay,WI,United States,Mei Haddad,Office Manager,,(849) 668-3849,https://www.linkedin.com/in/mei-haddad-771\n\"Oak Ridge Electric, LLC\",,Electrical Contractor,161,$32.9M,2013,Sacramento,CA,United States,,,,(918) 717-3282,\nBeacon Family Dental Co.,https://www.beaconfamily.com,Dental Practice,,$1.3M,1993,Kansas City,MO,United States,,,contact@beaconfamily.com,+1 658 397 6297,\nBeacon Accounting Group Group,https://beaconaccounting.com,Bookkeeping & Payroll,11-50,,1992,Boise,ID,United States,Kevin Kowalski,,kevinkowalski76@gmail.com,+1 427 345 2078,\nWestfield Physical Therapy,,Physical Therapy,,\"13,165,152\",,Dallas,TX,United States,Patricia Garcia,Marketing Coordinator,patricia@westfieldphysical.com,826-723-7970,https://www.linkedin.com/in/patricia-garcia-109\nEvergreen Grill,https://evergreengrill.com,Restaurant,11-50,,,Milwaukee,WI,United States,David Larson,Operations Director,david.larson@evergreengrill,(386) 587-2370,\nBluestem Pest Solutions Co.,https://www.bluestempest.com,Pest Control,51-200,$1295K,2017,Milwaukee,WI,United States,Kevin Murphy,Owner,kevin@bluestempest.com,000-000-0000,https://www.linkedin.com/in/kevin-murphy-557\nBluestem Electric Group,www.bluestemelectric.com,Electrical Contractor,,$43M - $48M,1968,Grand Rapids,MI,United States,,,,,\nSilverline Accounting Group Inc.,silverlineaccounting.co,Bookkeeping & Payroll,,2-6M,2018,Phoenix,AZ,United States,,,,,\nBadger Landscapes,https://www.badgerlandscapes.com,Landscaping & Lawn Care,11-50,$3M - $6M,,Columbus,OH,United States,Carlos Novak,VP of Sales,carlos@badgerlandscapes.com,+1 207 390 9829,https://www.linkedin.com/in/carlos-novak-979\nSterling Electric Group,sterlingelectric.net,Electrical Contractor,,,,Boise,ID,United States,Mei Bennett,VP of Sales,,,\nBluestem Boutique Group,,Retail Boutique,,$1.4M,2023,Omaha,NE,United States,,,,,\nSterling Staffing,http://sterlingstaffing.co/,Staffing Agency,,\"6,328,003\",2013,Dallas,TX,United States,,,,,\nPrairie Insurance Agency Group,prairieinsurance.com,Insurance Agency,9,13-17M,2022,Raleigh,NC,United States,Carlos Johnson,President,carlos.johnson@prairieinsurance,+1 702 497 9462,https://www.linkedin.com/in/carlos-johnson-187\nRedwood Fitness Inc.,redwoodfitness.com,Fitness Studio,1-10,\"295,570\",,Denver,CO,United States,Aisha Price,Owner,aisha.price@redwoodfitness.com,494-697-1802,https://www.linkedin.com/in/aisha-price-856\nEvergreen Logistics Inc.,evergreenlogistics.co,Freight & Logistics,21,\"19,340,064\",2017,Charlotte,NC,United States,,,,,\nPatriot Heating & Cooling Co.,patriotheating.com,HVAC Services,149,$3.8M,1981,Kansas City,MO,United States,Mei Price,Co-Owner,mei@patriotheating.com,,https://www.linkedin.com/in/mei-price-603\nHarbor Facility Services,https://www.harborfacility.com/contact-us,Commercial Cleaning,,$10255K,2020,Raleigh,NC,United States,Tanya Novak,,,+1 262 940 6431,\nTri-County Logistics Group,https://tricountylogistics.com,Freight & Logistics,51-200,$17M - $22M,2013,Green Bay,WI,United States,,,sales@tricountylogistics.com,+1 262 808 9417,\nValley Pest Solutions,,Pest Control,13,9-13M,1991,Indianapolis,IN,United States,Linda Bennett,Owner,linda.bennett@valleypest.co,665-570-5911,https://www.linkedin.com/in/linda-bennett-606\nHillcrest Plumbing,https://www.hillcrestplumbing.co,Plumbing Contractor,11-50,$1.2M,1986,Dallas,TX,United States,Gary Reyes,,,265-9122,https://www.linkedin.com/in/gary-reyes-926\nLiberty Landscapes LLC,https://www.libertylandscapes.com,Landscaping & Lawn Care,5,$7.1M,1982,Columbus,OH,United States,James Reyes,Founder & CEO,james@mailinator.com,761.452.1479,\nCopper Electric,https://copperelectric.com,Electrical Contractor,51-200,,2013,Milwaukee,WI,United States,,,,(744) 914-1104,\nWestfield Staffing Co.,www.westfieldstaffing.co,Staffing Agency,51-200,$14.4M,2015,Des Moines,IA,United States,Robert Olsen,General Manager,robert.olsen@westfieldstaffing.co,377.541.6738,https://www.linkedin.com/in/robert-olsen-951\nLiberty Electric,https://libertyelectric.co,Electrical Contractor,70,$9.0M,1991,Phoenix,AZ,United States,Kevin Nguyen,Owner,sales@libertyelectric.co,+1 819 561 2632,\nCobalt Precision Machining Co.,https://www.cobaltprecision.co,Machine Shop / CNC Machining,83,\"5,998,164\",2019,Boise,ID,United States,,,,823-448-6338,\nPatriot Fabrication LLC,https://www.patriotfabrication.net,Metal Fabrication,,13-17M,2009,Des Moines,IA,United States,,,sales@patriotfabrication.net,(943) 397-1673,\nWestfield Landscapes Co.,westfieldlandscapes.net,Landscaping & Lawn Care,1-10,2-6M,2013,Kansas City,MO,United States,,,contact@westfieldlandscapes.net,367-258-5809,\nFrontier Electric Group,www.frontierelectric.net,Electrical Contractor,16,,1993,Glendale,CA,United States,,,,+1 880 951 3685,\nHarbor Accounting Group Inc.,https://harboraccounting.com,Bookkeeping & Payroll,1-10,$9.0M,1998,Austin,TX,United States,,,,,\nJuniper Precision Machining Inc.,https://www.juniperprecision.com,Machine Shop / CNC Machining,201-500,$1410K,2023,Glendale,CA,United States,Kevin Nguyen,General Manager,kevin.nguyen@juniperprecision.com,+1 294 859 5685,https://www.linkedin.com/in/kevin-nguyen-893\nPatriot Coffee Co,,Coffee Shop,11-50,$1326K,2015,Milwaukee,WI,United States,Mei Okafor,Co-Owner,mei@mailinator.com,241-201-3058,https://www.linkedin.com/in/mei-okafor-751\nBeacon Plumbing LLC,http://beaconplumbing.com/,Plumbing Contractor,9,$4833K,2011,Minneapolis,MN,United States,Michael Haddad,Founder & CEO,office@beaconplumbing.com,,\nSterling Logistics Co.,https://www.sterlinglogistics.com,Freight & Logistics,11-50,$3684K,1977,Des Moines,IA,United States,Michael Reyes,General Manager,michael.reyes@sterlinglogistics.com,+1 668 270 2533,\nSilverline Grill Co.,https://silverlinegrill.co,Restaurant,17,\"1,932,254\",2023,Grand Rapids,MI,United States,,,info@silverlinegrill.co,(309) 580-8592,\nHeartland Heating & Cooling Co.,heartlandheating.net,HVAC Services,20,\"3,670,235\",2013,Minneapolis,MN,United States,Priya Murphy,Owner,priya@heartlandheating.net,(343) 915-1558,\nHeartland IT Solutions Group,www.heartlandit.com,Managed IT Services,11-50,$2M - $4M,2023,Indianapolis,IN,United States,Patricia Rossi,Founder & CEO,patricia.rossi@heartlandit.com,,https://www.linkedin.com/in/patricia-rossi-820\nKeystone Physical Therapy LLC,keystonephysical.net,Physical Therapy,11-50,\"955,356\",1990,Columbus,OH,United States,Nora Miller,General Manager,noramiller19@gmail.com,(366) 733-3814,https://www.linkedin.com/in/nora-miller-144\nArrowhead Animal Hospital Co.,https://www.arrowheadanimal.net,Veterinary Clinic,1-10,$0.8M,,Austin,TX,United States,Jennifer Patel,Office Manager,jennifer@arrowheadanimal.net,804.278.6909,https://www.linkedin.com/in/jennifer-patel-777\nJuniper Insurance Agency,http://juniperinsurance.co/,Insurance Agency,1-10,$1M - $2M,1969,Denver,CO,United States,,,,649.293.9604,\nBLUESTEM ANIMAL HOSPITAL LLC,www.bluestemanimal.net,Veterinary Clinic,51-200,\"1,758,466\",2010,COLUMBUS,OH,United States,,,,(622) 452-3550,\n,,,,,,,,,,,,,\nOak Ridge Animal Hospital LLC,oakridgeanimal.net,Veterinary Clinic,15,$0.5M,2004,Nashville,TN,United States,,,office@oakridgeanimal.net,,\nCedar Grill Inc.,https://cedargrill.net,Restaurant,,1-5M,2004,Raleigh,NC,United States,,,contact@cedargrill.net,,\nBadger Plumbing Group,https://badgerplumbing.com,Plumbing Contractor,,,1983,Glendale,CA,United States,,,,,\nLakeshore Physical Therapy,https://www.lakeshorephysical.co,Physical Therapy,11-50,$0.5M,2021,Omaha,NE,United States,Carlos Yamamoto,Co-Owner,,455.593.7549,\nHarbor Facility Services,www.harborfacility.com,Commercial Cleaning,,$10255K,2020,Raleigh,NC,United States,Tanya Novak,,,+1 262 940 6431,\nTri-County Heating & Cooling Co.,tricountyheating.com,HVAC Services,11-50,$1077K,1981,Dallas,TX,United States,Ahmed Reyes,Owner,ahmed.reyes@tricountyheating.com,651-562-2789,\nCrescent Accounting Group,https://www.crescentaccounting.com,Bookkeeping & Payroll,11,,2002,Tampa,FL,United States,,,,,\nHeartland Pest Solutions,https://heartlandpest.com,Pest Control,,,2000,Green Bay,WI,United States,,,,,\nKeystone Fabrication LLC,www.keystonefabrication.com,Metal Fabrication,51-200,$7.1M,2018,Austin,TX,United States,Nora Fischer,VP of Sales,nora@keystonefabrication.com,+1 745 914 6006,\nHarbor Accounting Group Inc.,https://www.harboraccounting.com/contact-us,Bookkeeping & Payroll,1-10,$9.0M,1998,Austin,TX,United States,,,,,\nOak Ridge Electric,https://www.oakridgeelectric.com,Electrical Contractor,161,$32.9M,2013,Sacramento,CA,United States,,,,(918) 717-3282,\nBadger Electric Group,www.badgerelectric.net,Electrical Contractor,,10-14M,,Sacramento,CA,United States,Patricia Johnson,President,patricia@badgerelectric.net,+1 576 237 3678,https://www.linkedin.com/in/patricia-johnson-465\nBadger Family Dental Inc.,https://badgerfamily.co,Dental Practice,11-50,$1M - $2M,1988,Raleigh,NC,United States,Kim Olsen,Co-Owner,,(615) 657-2101,\nWestfield Precision Machining,westfieldprecision.co,Machine Shop / CNC Machining,,,1992,Raleigh,NC,United States,Steven Larson,,info@westfieldprecision.co,612-864-3526,\nLakeshore Staffing Inc.,https://lakeshorestaffing.co,Staffing Agency,73,,2023,Raleigh,NC,United States,Tanya Yamamoto,General Manager,tanya.yamamoto@lakeshorestaffing.co,737.722.1306,\nPrairie Staffing,http://prairiestaffing.com/,Staffing Agency,,$2.1M,,Columbus,OH,United States,,,,+1 781 474 7110,\nPatriot Precision Machining Inc.,https://patriotprecision.com,Machine Shop / CNC Machining,,,1985,Charlotte,NC,United States,Mark Larson,Owner,,,https://www.linkedin.com/in/mark-larson-154\nNorthstar Pest Solutions,,Pest Control,1-10,$4M - $8M,2020,Denver,CO,United States,Daniel Novak,General Manager,daniel@northstarpest.co,215.449.3446,\nIronwood Logistics,www.ironwoodlogistics.com,Freight & Logistics,160,,2015,Dallas,TX,United States,Ahmed Okafor,Operations Director,ahmed@ironwoodlogistics.com,(269) 202-8859,\nPinecrest IT Solutions Inc.,https://pinecrestit.com,Managed IT Services,6,,1998,Indianapolis,IN,United States,,,sales@pinecrestit.com,,\nHillcrest Insurance Agency LLC,,Insurance Agency,,$5M - $10M,,Green Bay,WI,United States,Nora Rossi,Marketing Coordinator,nora@hillcrestinsurance.com,335-803-1715,\nPrairie IT Solutions Group,,Managed IT Services,24,$12.1M,,Green Bay,WI,United States,Carlos Kowalski,VP of Sales,carlos@@prairieit.com,+1 646 595 9404,\nWestfield IT Solutions,http://westfieldit.net/,Managed IT Services,,,2013,Dallas,TX,United States,,,,,\nCrescent Boutique,crescentboutique.com,Retail Boutique,5,2-6M,1990,Green Bay,WI,United States,Priya Haddad,Owner,sales@crescentboutique.com,595-220-1895,https://www.linkedin.com/in/priya-haddad-328\n\"Northstar Staffing, LLC\",,Staffing Agency,51-200,$3414K,1990,Boise,ID,United States,Daniel Hernandez,Office Manager,office@northstarstaffing.net,369-332-2128,\nPinecrest Physical Therapy Group,https://www.pinecrestphysical.co,Physical Therapy,,1-5M,,Minneapolis,MN,United States,Denise Chen,Owner,,,\nBadger Family Dental Inc.,https://www.badgerfamily.co/contact-us,Dental Practice,11-50,$1M - $2M,1988,Raleigh,NC,United States,Kim Olsen,Co-Owner,,(615) 657-2101,\nRiverbend Staffing,https://www.riverbendstaffing.com,Staffing Agency,51-200,$35M - $40M,2015,Grand Rapids,MI,United States,,,,(595) 670-9856,\nCopper Accounting Group,copperaccounting.com,Bookkeeping & Payroll,11-50,3-7M,,Dallas,TX,United States,Nora Price,Owner,nora@copperaccounting.com,759.713.3803,\nSilverline Landscapes Inc.,https://silverlinelandscapes.com,Landscaping & Lawn Care,,$2.2M,1995,Indianapolis,IN,United States,,,,(848) 503-8590,\nPinecrest Landscapes Inc.,,Landscaping & Lawn Care,,$394K,2004,Charlotte,NC,United States,Priya Anderson,Operations Director,priya@pinecrestlandscapes.com,395-726-8778,\nPinecrest Fabrication Group,https://pinecrestfabrication.co,Metal Fabrication,,14-18M,1999,Boise,ID,United States,,,sales@pinecrestfabrication.co,,\nPinecrest Grill Co.,http://pinecrestgrill.com/,Restaurant,51-200,$2.6M,2000,Glendale,CA,United States,,,,(341) 678-4597,\nCopper Physical Therapy Group,https://www.copperphysical.com,Physical Therapy,,$2.8M,2007,Sacramento,CA,United States,,,sales@copperphysical.com,924-698-8909,\nFRONTIER FABRICATION,,Metal Fabrication,51-200,$22238K,2021,MILWAUKEE,WI,United States,Gary Anderson,Co-Owner,gary.anderson@frontierfabrication.com,408-761-2839,\nMaple Boutique,mapleboutique.co,Retail Boutique,,$1294K,2015,Charlotte,NC,United States,Gary Nguyen,Owner,contact@mapleboutique.co,993-2819,\nFrontier Salon,,Hair Salon,14,$193K,2016,Sacramento,CA,United States,Thomas Okafor,Owner,thomas.okafor@frontiersalon.net,+1 798 344 6992,https://www.linkedin.com/in/thomas-okafor-645\nBeacon Plumbing LLC,http://beaconplumbing.com/,Plumbing Contractor,,,2011,Minneapolis,MN,United States,Michael Haddad,Founder & CEO,,,\nTri-County Pest Solutions Co.,https://tricountypest.com,Pest Control,,$14.5M,2023,Tampa,FL,United States,Mark Murphy,Owner,mark.murphy@tricountypest.com,(579) 459-4921,\nIronwood Family Dental Co.,https://ironwoodfamily.com,Dental Practice,,$7.7M,2023,Omaha,NE,United States,,,,736-742-5488,\nWestfield Electric,,Electrical Contractor,,$8.8M,,Boise,ID,United States,,,,,\nWestfield Coffee Co Inc.,http://westfieldcoffee.com/,Coffee Shop,11-50,,1995,Denver,CO,United States,,,hello@westfieldcoffee.com,,\nOak Ridge Family Dental,,Dental Practice,11-50,$7M - $12M,1978,Boise,ID,United States,,,,766.952.9419,\nHarbor Grill Co.,,Restaurant,11-50,\"8,110,023\",,Columbus,OH,United States,,,info@harborgrill.com,(968) 911-5313,\nBLUESTEM SOFTWARE GROUP,bluestemsoftware.com,Software Development,51-200,\"12,149,588\",,MILWAUKEE,WI,United States,Gary Murphy,,gary@bluestemsoftware.com,+1 645 447 4790,\nLakeshore Heating & Cooling Co.,lakeshoreheating.com,HVAC Services,51-200,$6M - $11M,2001,Grand Rapids,MI,United States,,,,(869) 552-2389,\nGranite Logistics LLC,https://granitelogistics.com,Freight & Logistics,51-200,$4.9M,1998,Sacramento,CA,United States,,,,,\nHarbor Fitness Co.,https://www.harborfitness.net,Fitness Studio,1-10,$1697K,2015,Milwaukee,WI,United States,,,sales@harborfitness.net,960-667-4442,\nValley Logistics Co.,http://valleylogistics.com/,Freight & Logistics,51-200,,2018,Glendale,CA,United States,,,office@valleylogistics.com,(692) 696-8020,\nRedwood Logistics Co.,www.redwoodlogistics.net,Freight & Logistics,,,1969,Omaha,NE,United States,Fatima Nguyen,Co-Owner,,,\nEvergreen Precision Machining Co.,www.evergreenprecision.net,Machine Shop / CNC Machining,51-200,$75.5M,1999,Raleigh,NC,United States,,,,,\nBadger Precision Machining Group,https://www.badgerprecision.com,Machine Shop / CNC Machining,51-200,9-13M,,Glendale,CA,United States,Priya Haddad,,priya@badgerprecision.com,(349) 360-9493,\nBeacon Fabrication,beaconfabrication.com,Metal Fabrication,51-200,$2.6M,2016,Columbus,OH,United States,Sofia Novak,Owner,sofia.novak@beaconfabrication.com,,\nPinecrest Logistics LLC,,Freight & Logistics,,29-33M,2020,Tampa,FL,United States,Jennifer Nguyen,Owner,office@pinecrestlogistics.com,787-673-7498,\nFrontier IT Solutions,frontierit.co,Managed IT Services,,$1280K,1998,Phoenix,AZ,United States,,,contact@frontierit.co,753-813-1108,\nPrairie Physical Therapy,http://prairiephysical.com/,Physical Therapy,11-50,$0.9M,,Nashville,TN,United States,,,info@prairiephysical.com,215.938.3689,\nWestfield Boutique Inc.,,Retail Boutique,1-10,$2968K,1993,Denver,CO,United States,,,,282-369-6394,\nRedwood Boutique Co.,https://www.redwoodboutique.net,Retail Boutique,,$1M - $2M,2022,Green Bay,WI,United States,Steven Rossi,President,steven@@redwoodboutique.net,+1 265 881 4328,\nNorthstar Facility Services Co.,https://northstarfacility.com,Commercial Cleaning,,$5769K,2014,Sacramento,CA,United States,,,sales@northstarfacility.com,(595) 683-5372,\nPatriot Boutique Group,patriotboutique.co,Retail Boutique,,1-5M,2007,Indianapolis,IN,United States,,,info@patriotboutique.co,718-820-9391,\nSterling Electric Group,sterlingelectric.net,Electrical Contractor,51-200,,,Boise,ID,United States,Mei Bennett,VP of Sales,sales@sterlingelectric.net,(335) 221-1233,\nFrontier Landscapes LLC,https://www.frontierlandscapes.com,Landscaping & Lawn Care,,,,Green Bay,WI,United States,Mei Haddad,Office Manager,,,https://www.linkedin.com/in/mei-haddad-771\nBadger Electric Group,https://www.badgerelectric.net/contact-us,Electrical Contractor,,10-14M,,Sacramento,CA,United States,Patricia Johnson,President,patricia@badgerelectric.net,+1 576 237 3678,https://www.linkedin.com/in/patricia-johnson-465\nTri-County Grill Co.,https://www.tricountygrill.com,Restaurant,,$5.2M,2001,Phoenix,AZ,United States,James Miller,General Manager,james.miller@tricountygrill.com,591-718-5619,https://www.linkedin.com/in/james-miller-556\nPatriot Precision Machining Inc.,https://patriotprecision.com,Machine Shop / CNC Machining,51-200,$3.9M,1985,Charlotte,NC,United States,Mark Larson,Owner,mark@patriotprecision.com,000-000-0000,https://www.linkedin.com/in/mark-larson-154\nBluestem Animal Hospital LLC,www.bluestemanimal.net,Veterinary Clinic,51-200,\"1,758,466\",2010,Columbus,OH,United States,,,,(622) 452-3550,\nEvergreen Electric LLC,evergreenelectric.co,Electrical Contractor,11-50,$3816K,1968,Phoenix,AZ,United States,,,,753-629-7274,\nPatriot Electric,http://patriotelectric.net/,Electrical Contractor,54,$8M - $13M,2023,Indianapolis,IN,United States,,,,986.572.4230,\nCrescent Facility Services Group,,Commercial Cleaning,11-50,$1.8M,2013,Green Bay,WI,United States,Steven Yamamoto,Operations Director,steven.yamamoto@crescentfacility.com,657.911.2831,\n";
+
+</script>
+  <script>
+/*
+ * Triage engine — pure functions, no DOM. Runs in the browser and in Node (tests).
+ *
+ * Pipeline:  parseCSV → detectColumns → normalize → dedupe → score → queue → export
+ * Scoring is re-run on every thesis change, so it must stay fast: O(n) per pass,
+ * no I/O. Dedupe runs once per import.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.TriageEngine = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  // ------------------------------------------------------------------ CSV
+
+  function sniffDelimiter(text) {
+    const firstLine = text.slice(0, text.indexOf('\n') === -1 ? text.length : text.indexOf('\n'));
+    const counts = { ',': 0, ';': 0, '\t': 0 };
+    let inQ = false;
+    for (const ch of firstLine) {
+      if (ch === '"') inQ = !inQ;
+      else if (!inQ && ch in counts) counts[ch]++;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][1] > 0
+      ? Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+      : ',';
+  }
+
+  /** RFC-4180-ish parser: quoted fields, escaped quotes, embedded newlines, BOM. */
+  function parseCSV(text) {
+    if (!text) return { headers: [], records: [] };
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    const delim = sniffDelimiter(text);
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else field += c;
+        continue;
+      }
+      if (c === '"') inQuotes = true;
+      else if (c === delim) { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c !== '\r') field += c;
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+
+    const nonEmpty = rows.filter((r) => r.some((v) => v.trim() !== ''));
+    if (!nonEmpty.length) return { headers: [], records: [] };
+    const headers = nonEmpty[0].map((h) => h.trim());
+    const records = nonEmpty.slice(1).map((r) => {
+      const o = {};
+      headers.forEach((h, idx) => { o[h] = (r[idx] == null ? '' : r[idx]).trim(); });
+      return o;
+    });
+    return { headers, records };
+  }
+
+  function csvEscape(v) {
+    const s = v == null ? '' : String(v);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  function toCSV(headers, rows) {
+    const lines = [headers.map(csvEscape).join(',')];
+    for (const r of rows) lines.push(headers.map((h) => csvEscape(r[h])).join(','));
+    return lines.join('\r\n');
+  }
+
+  // ------------------------------------------------------- Column mapping
+
+  /** Canonical fields and the header names we have seen for them in lead exports. */
+  const FIELDS = {
+    company: { label: 'Company name', synonyms: ['company', 'company name', 'business', 'business name', 'organization', 'organisation', 'account', 'account name', 'name'] },
+    website: { label: 'Website', synonyms: ['website', 'domain', 'url', 'web', 'site', 'company website', 'website url', 'company domain', 'company url'] },
+    industry: { label: 'Industry', synonyms: ['industry', 'category', 'sector', 'vertical', 'business type', 'niche', 'sub industry', 'naics description'] },
+    employees: { label: 'Employees', synonyms: ['employees', 'employee count', 'number of employees', 'headcount', 'company size', 'staff', 'employee range', 'est employees', 'estimated employees'] },
+    revenue: { label: 'Revenue', synonyms: ['revenue', 'annual revenue', 'estimated revenue', 'est revenue', 'revenue estimate', 'revenue range', 'sales volume'] },
+    founded: { label: 'Year founded', synonyms: ['founded', 'year founded', 'founded year', 'established', 'year established', 'year started'] },
+    yearsInBusiness: { label: 'Years in business', synonyms: ['years in business', 'years operating', 'business age'] },
+    city: { label: 'City', synonyms: ['city', 'town', 'locality'] },
+    state: { label: 'State', synonyms: ['state', 'province', 'region', 'state province', 'state region'] },
+    country: { label: 'Country', synonyms: ['country', 'country code'] },
+    contactName: { label: 'Contact name', synonyms: ['owner', 'owner name', 'contact', 'contact name', 'full name', 'person', 'person name', 'decision maker', 'lead name'] },
+    firstName: { label: 'First name', synonyms: ['first name', 'firstname', 'given name', 'owner first name'] },
+    lastName: { label: 'Last name', synonyms: ['last name', 'lastname', 'surname', 'family name', 'owner last name'] },
+    title: { label: 'Job title', synonyms: ['title', 'job title', 'position', 'role', 'owner title', 'contact title', 'designation'] },
+    email: { label: 'Email', synonyms: ['email', 'email address', 'e mail', 'owner email', 'contact email', 'work email', 'business email'] },
+    phone: { label: 'Phone', synonyms: ['phone', 'phone number', 'telephone', 'tel', 'mobile', 'company phone', 'owner phone', 'direct phone', 'contact phone'] },
+    linkedin: { label: 'LinkedIn', synonyms: ['linkedin', 'linkedin url', 'linkedin profile', 'owner linkedin', 'contact linkedin', 'company linkedin'] },
+  };
+
+  function normHeader(h) {
+    return String(h).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  /**
+   * Map arbitrary export headers to canonical fields.
+   * Exact synonym beats "header contains synonym"; each header is used once.
+   * Returns { field: headerName }.
+   */
+  function detectColumns(headers) {
+    const candidates = [];
+    headers.forEach((h) => {
+      const nh = normHeader(h);
+      for (const [field, def] of Object.entries(FIELDS)) {
+        def.synonyms.forEach((syn, rank) => {
+          let score = 0;
+          if (nh === syn) score = 100 - rank;
+          else if (syn.length > 3 && new RegExp('(^| )' + syn + '( |$)').test(nh)) score = 50 - rank;
+          if (score) candidates.push({ field, header: h, score });
+        });
+      }
+    });
+    candidates.sort((a, b) => b.score - a.score);
+    const mapping = {};
+    const usedHeaders = new Set();
+    for (const c of candidates) {
+      if (mapping[c.field] || usedHeaders.has(c.header)) continue;
+      mapping[c.field] = c.header;
+      usedHeaders.add(c.header);
+    }
+    return mapping;
+  }
+
+  // -------------------------------------------------------- Normalization
+
+  const LEGAL_SUFFIX = /\b(inc|incorporated|llc|l l c|ltd|limited|corp|corporation|co|company|pllc|plc|lp|llp|pc|pa)\b/g;
+
+  function nameKey(name) {
+    return String(name || '')
+      .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9 ]+/g, ' ')
+      .replace(LEGAL_SUFFIX, ' ')
+      .replace(/\bthe\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function extractDomain(value) {
+    if (!value) return '';
+    let d = String(value).trim().toLowerCase();
+    if (d.includes('@') && !d.includes('/')) d = d.split('@').pop();
+    d = d.replace(/^[a-z][a-z0-9+.-]*:\/\//, '').replace(/^www\d?\./, '');
+    d = d.split(/[/?#:\s]/)[0].replace(/\.$/, '');
+    return /^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(d) ? d : '';
+  }
+
+  const FREE_EMAIL = new Set(['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com', 'me.com', 'msn.com', 'live.com', 'comcast.net', 'att.net', 'sbcglobal.net', 'verizon.net', 'protonmail.com', 'proton.me', 'ymail.com', 'mail.com', 'gmx.com', 'charter.net', 'cox.net', 'bellsouth.net']);
+  const DISPOSABLE_EMAIL = new Set(['mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com', 'temp-mail.org', 'trashmail.com', 'yopmail.com', 'getnada.com', 'sharklasers.com', 'dispostable.com', 'maildrop.cc', 'throwawaymail.com', 'fakeinbox.com']);
+  const ROLE_LOCALPARTS = new Set(['info', 'sales', 'contact', 'admin', 'support', 'office', 'hello', 'service', 'services', 'help', 'team', 'enquiries', 'inquiries', 'billing', 'accounts', 'mail', 'marketing', 'hr', 'jobs', 'careers', 'noreply', 'no-reply', 'webmaster', 'reception', 'frontdesk', 'customerservice']);
+  const EMAIL_RE = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/;
+
+  /** Classify an email without network access. Domain MX is applied later from the API. */
+  function checkEmail(email, companyDomain) {
+    const e = String(email || '').trim().toLowerCase().replace(/^mailto:/, '');
+    if (!e) return { status: 'missing', label: 'No email' };
+    if (!EMAIL_RE.test(e)) return { status: 'invalid', label: 'Malformed address', address: e };
+    const [local, domain] = e.split('@');
+    if (DISPOSABLE_EMAIL.has(domain)) return { status: 'invalid', label: 'Disposable inbox', address: e, domain };
+    const base = local.split('+')[0];
+    let type = 'direct';
+    if (ROLE_LOCALPARTS.has(base)) type = 'role';
+    else if (FREE_EMAIL.has(domain)) type = 'personal';
+    const matchesCompany = !!companyDomain && (domain === companyDomain || domain.endsWith('.' + companyDomain));
+    const label = type === 'role' ? 'Shared inbox' : type === 'personal' ? 'Personal address' : matchesCompany ? 'Direct, company domain' : 'Direct address';
+    return { status: 'valid', type, matchesCompany, address: e, domain, label };
+  }
+
+  function checkPhone(phone) {
+    const raw = String(phone || '').trim();
+    if (!raw) return { status: 'missing', label: 'No phone' };
+    const hadPlus = raw.startsWith('+');
+    const digits = raw.replace(/\s*(ext\.?|x)\s*\d+$/i, '').replace(/[^0-9]/g, '');
+    if (/^(\d)\1+$/.test(digits)) return { status: 'invalid', label: 'Placeholder number', raw };
+    let us = null;
+    if (!hadPlus && digits.length === 10) us = digits;
+    else if (digits.length === 11 && digits[0] === '1') us = digits.slice(1);
+    if (us) {
+      // NANP: area code and exchange cannot start with 0 or 1
+      if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(us)) return { status: 'invalid', label: 'Not a valid US number', raw };
+      return { status: 'valid', label: 'US number', display: `(${us.slice(0, 3)}) ${us.slice(3, 6)}-${us.slice(6)}`, e164: '+1' + us };
+    }
+    if (hadPlus && digits.length >= 8 && digits.length <= 15) return { status: 'valid', label: 'International number', display: raw, e164: '+' + digits };
+    return { status: 'invalid', label: 'Unrecognized format', raw };
+  }
+
+  const MULTIPLIERS = { k: 1e3, thousand: 1e3, m: 1e6, mm: 1e6, mil: 1e6, million: 1e6, b: 1e9, bn: 1e9, billion: 1e9 };
+
+  function parseAmount(s) {
+    const t = String(s).toLowerCase().replace(/[$€£,\s]|usd/g, '');
+    const m = t.match(/^(\d+(?:\.\d+)?)(k|thousand|mm|mil|million|m|bn|billion|b)?/);
+    if (!m) return null;
+    return { n: parseFloat(m[1]), mult: m[2] ? MULTIPLIERS[m[2]] : null };
+  }
+
+  /** "11-50", "$1M - $5M", "1-5M", "500+", "<$1M", "1,250,000", "$450K" → {low, high, mid} */
+  function parseRange(value) {
+    if (value == null) return null;
+    let s = String(value).trim();
+    if (!s || /^(n\/?a|unknown|-|none|null)$/i.test(s)) return null;
+    let lessThan = false;
+    let plus = false;
+    if (/^(<|under|less than|up to)/i.test(s)) { lessThan = true; s = s.replace(/^(<|under|less than|up to)\s*/i, ''); }
+    if (/\+\s*$|or more$/i.test(s)) { plus = true; s = s.replace(/\+\s*$|or more$/i, ''); }
+    const parts = s.split(/\s*(?:–|—|-|\bto\b)\s*/i).filter((p) => p.trim() !== '');
+    const nums = parts.map(parseAmount).filter(Boolean);
+    if (!nums.length) return null;
+    const unit = nums.map((x) => x.mult).filter(Boolean).pop() || 1;
+    const vals = nums.map((x) => x.n * (x.mult || unit));
+    let low = Math.min(...vals);
+    let high = Math.max(...vals);
+    if (lessThan) { high = low; low = 0; }
+    if (plus) high = low * 1.5;
+    return { low, high, mid: lessThan ? high * 0.6 : (low + high) / 2 };
+  }
+
+  function classifyTitle(title) {
+    const s = String(title || '').toLowerCase();
+    if (!s.trim()) return 'unknown';
+    if (/\b(vice president|vp|svp|evp)\b/.test(s)) return 'executive';
+    if (/\b(owner|co ?-?owner|founder|co ?-?founder|proprietor|principal|president|ceo|chief executive|managing (partner|member))\b/.test(s)) return 'owner';
+    if (/\b(chief|cfo|coo|cto|cmo|cro|partner|general manager|gm|managing director)\b/.test(s)) return 'executive';
+    if (/\b(director|head of)\b/.test(s)) return 'director';
+    if (/\b(manager|lead|supervisor|superintendent)\b/.test(s)) return 'manager';
+    return 'staff';
+  }
+
+  const SENIORITY_LABEL = { owner: 'Owner / founder', executive: 'Executive', director: 'Director', manager: 'Manager', staff: 'Staff', unknown: 'Unknown role' };
+
+  /** Industry taxonomy tuned to lower-middle-market targets. Order matters: first match wins. */
+  const INDUSTRY_GROUPS = [
+    ['IT & software', ['managed it', 'managed service', 'it services', 'it support', 'msp', 'software', 'saas', 'cybersecurity', 'web development', 'computer', 'technology', 'data center']],
+    ['Healthcare services', ['dental', 'dentist', 'orthodont', 'physical therapy', 'chiropract', 'veterinar', 'animal hospital', 'home health', 'medical billing', 'optometr', 'pharmacy', 'clinic', 'medical', 'health']],
+    ['Home services', ['hvac', 'heating', 'air conditioning', 'cooling', 'plumbing', 'plumber', 'electrical', 'electrician', 'roofing', 'landscap', 'lawn', 'pest', 'residential cleaning', 'maid', 'painting', 'pool', 'garage door', 'restoration', 'home services', 'tree service', 'fencing', 'remodel']],
+    ['B2B services', ['staffing', 'accounting', 'bookkeeping', 'payroll', 'cpa', 'consulting', 'marketing agency', 'logistics', 'freight', 'courier', 'trucking', 'commercial cleaning', 'janitorial', 'facilities', 'printing', 'insurance agency', 'insurance', 'engineering', 'security services', 'alarm', 'waste', 'environmental services', 'testing lab', 'laboratory', 'legal services', 'translation']],
+    ['Industrial', ['manufactur', 'machining', 'machine shop', 'fabricat', 'metal', 'packaging', 'industrial', 'distribut', 'wholesale', 'equipment rental', 'welding', 'plastics', 'tool and die', 'cnc']],
+    ['Consumer & retail', ['restaurant', 'retail', 'boutique', 'salon', 'spa', 'fitness', 'gym', 'cafe', 'coffee', 'bakery', 'apparel', 'florist', 'bar', 'food truck', 'car wash']],
+  ];
+  const INDUSTRY_GROUP_NAMES = INDUSTRY_GROUPS.map((g) => g[0]);
+
+  /** Businesses where revenue usually repeats: contracts, maintenance plans, subscriptions. */
+  const RECURRING_KEYWORDS = ['managed', 'maintenance', 'pest', 'landscap', 'lawn', 'janitorial', 'commercial cleaning', 'payroll', 'bookkeeping', 'accounting', 'alarm', 'monitoring', 'waste', 'software', 'saas', 'msp', 'it support', 'pool', 'insurance', 'staffing', 'medical billing', 'equipment rental', 'hvac'];
+
+  function industryGroup(industry) {
+    const s = String(industry || '').toLowerCase();
+    if (!s.trim()) return null;
+    for (const [group, kws] of INDUSTRY_GROUPS) if (kws.some((k) => s.includes(k))) return group;
+    return 'Other';
+  }
+
+  function isRecurring(industry) {
+    const s = String(industry || '').toLowerCase();
+    return RECURRING_KEYWORDS.some((k) => s.includes(k));
+  }
+
+  function splitName(full) {
+    const parts = String(full || '').trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+    if (!parts.length) return { first: '', last: '' };
+    return { first: parts[0], last: parts.slice(1).join(' ') };
+  }
+
+  function titleCase(s) {
+    return String(s || '').toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase());
+  }
+
+  const KEEP_UPPER = new Set(['LLC', 'LLP', 'PLLC', 'IT', 'HVAC', 'CNC', 'USA', 'PC', 'PA', 'LP', 'CPA', 'MSP', 'AV', 'RV']);
+
+  /** "BLUESTEM ANIMAL HOSPITAL LLC" → "Bluestem Animal Hospital LLC"; leaves mixed case alone. */
+  function tidyCompanyName(name) {
+    const s = String(name || '').replace(/\s+/g, ' ').trim();
+    if (!s || s !== s.toUpperCase() || !/[A-Z]{4,}/.test(s)) return s;
+    return s.split(' ').map((w) => (KEEP_UPPER.has(w.replace(/[^A-Z]/g, '')) ? w : titleCase(w))).join(' ');
+  }
+
+  /** Turn one raw CSV record into a typed lead. Never throws on bad input. */
+  function normalize(record, mapping, opts) {
+    const asOfYear = (opts && opts.asOfYear) || new Date().getFullYear();
+    const get = (f) => (mapping[f] ? String(record[mapping[f]] || '').trim() : '');
+
+    const company = tidyCompanyName(get('company'));
+    const emailRaw = get('email');
+    let domain = extractDomain(get('website'));
+    const domainFromWebsite = !!domain;
+    const emailDomain = extractDomain(emailRaw.includes('@') ? emailRaw.split('@').pop() : '');
+    if (!domain && emailDomain && !FREE_EMAIL.has(emailDomain) && !DISPOSABLE_EMAIL.has(emailDomain)) domain = emailDomain;
+
+    let first = get('firstName');
+    let last = get('lastName');
+    let contactName = get('contactName');
+    if (!contactName && (first || last)) contactName = (first + ' ' + last).trim();
+    if (contactName && !first) ({ first, last } = splitName(contactName));
+    if (contactName === contactName.toUpperCase() || contactName === contactName.toLowerCase()) contactName = titleCase(contactName);
+    if (first === first.toUpperCase() || first === first.toLowerCase()) first = titleCase(first);
+
+    let founded = parseInt(get('founded').replace(/[^0-9]/g, '').slice(0, 4), 10);
+    if (!(founded >= 1800 && founded <= asOfYear)) founded = null;
+    let years = founded ? asOfYear - founded : null;
+    const yearsRaw = parseFloat(get('yearsInBusiness'));
+    if (years == null && yearsRaw >= 0 && yearsRaw < 250) { years = Math.round(yearsRaw); founded = asOfYear - years; }
+
+    const industry = get('industry');
+    const title = get('title');
+    const lead = {
+      company,
+      tidiedFromCaps: company !== get('company').replace(/\s+/g, ' ').trim(),
+      nameKey: nameKey(company),
+      website: get('website'),
+      domain,
+      domainFromWebsite,
+      industry,
+      industryGroup: industryGroup(industry),
+      recurring: isRecurring(industry),
+      employees: parseRange(get('employees')),
+      employeesRaw: get('employees'),
+      revenue: parseRange(get('revenue')),
+      revenueRaw: get('revenue'),
+      founded,
+      years,
+      city: titleCase(get('city')),
+      state: get('state').length <= 3 ? get('state').toUpperCase() : titleCase(get('state')),
+      country: get('country'),
+      contactName,
+      firstName: first,
+      lastName: last,
+      title,
+      seniority: classifyTitle(title),
+      emailRaw,
+      email: checkEmail(emailRaw, domain),
+      phoneRaw: get('phone'),
+      phone: checkPhone(get('phone')),
+      linkedin: get('linkedin'),
+    };
+    return lead;
+  }
+
+  const COMPLETENESS_FIELDS = [
+    ['company', (l) => !!l.company], ['website', (l) => !!l.domain], ['industry', (l) => !!l.industry],
+    ['employees', (l) => !!l.employees], ['revenue', (l) => !!l.revenue], ['year founded', (l) => l.years != null],
+    ['contact name', (l) => !!l.contactName], ['title', (l) => !!l.title],
+    ['email', (l) => l.email.status === 'valid'], ['phone', (l) => l.phone.status === 'valid'],
+  ];
+
+  function missingFields(lead) {
+    return COMPLETENESS_FIELDS.filter(([, has]) => !has(lead)).map(([name]) => name);
+  }
+
+  // ---------------------------------------------------------------- Dedupe
+
+  function bigrams(s) {
+    const out = new Map();
+    const t = ' ' + s + ' ';
+    for (let i = 0; i < t.length - 1; i++) {
+      const g = t.slice(i, i + 2);
+      out.set(g, (out.get(g) || 0) + 1);
+    }
+    return out;
+  }
+
+  /** Sørensen–Dice similarity on character bigrams, 0..1. */
+  function similarity(a, b) {
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+    const A = bigrams(a);
+    const B = bigrams(b);
+    let inter = 0;
+    let total = 0;
+    for (const [g, n] of A) { total += n; if (B.has(g)) inter += Math.min(n, B.get(g)); }
+    for (const n of B.values()) total += n;
+    return (2 * inter) / total;
+  }
+
+  /**
+   * Typo-tolerant name match. The whole key must be close (≥ 0.88) AND the first,
+   * most distinctive word must be close too, so "Copper Precision Machining" and
+   * "Juniper Precision Machining" (0.84 overall) stay separate businesses.
+   */
+  function similarName(a, b) {
+    if (similarity(a, b) < 0.88) return false;
+    const fa = a.split(' ')[0];
+    const fb = b.split(' ')[0];
+    return fa === fb || similarity(fa, fb) >= 0.75;
+  }
+
+  const EMAIL_RANK = { direct: 3, personal: 2, role: 1 };
+
+  function emailRank(e) {
+    if (!e || e.status !== 'valid') return 0;
+    return EMAIL_RANK[e.type] + (e.matchesCompany ? 1 : 0);
+  }
+
+  function mergeInto(target, src) {
+    const simple = ['company', 'website', 'industry', 'industryGroup', 'employeesRaw', 'revenueRaw', 'founded', 'years', 'city', 'state', 'country', 'linkedin'];
+    for (const k of simple) if ((target[k] == null || target[k] === '') && src[k] != null && src[k] !== '') target[k] = src[k];
+    if (target.tidiedFromCaps && src.company && !src.tidiedFromCaps) target.company = src.company;
+    if (!target.domain && src.domain) { target.domain = src.domain; target.domainFromWebsite = src.domainFromWebsite; }
+    if (!target.employees && src.employees) target.employees = src.employees;
+    if (!target.revenue && src.revenue) target.revenue = src.revenue;
+    if (!target.recurring && src.recurring) target.recurring = true;
+    // Contact: keep the most senior person, then the best email.
+    const order = ['owner', 'executive', 'director', 'manager', 'staff', 'unknown'];
+    const srcBetter = order.indexOf(src.seniority) < order.indexOf(target.seniority);
+    if (srcBetter && src.contactName) {
+      for (const k of ['contactName', 'firstName', 'lastName', 'title', 'seniority']) target[k] = src[k];
+    } else if (!target.contactName && src.contactName) {
+      for (const k of ['contactName', 'firstName', 'lastName', 'title', 'seniority']) target[k] = src[k];
+    }
+    if (emailRank(src.email) > emailRank(target.email)) { target.email = src.email; target.emailRaw = src.emailRaw; }
+    if (target.phone.status !== 'valid' && src.phone.status === 'valid') { target.phone = src.phone; target.phoneRaw = src.phoneRaw; }
+    if (target.email.status === 'valid') target.email = checkEmail(target.email.address, target.domain);
+  }
+
+  /**
+   * Collapse duplicate companies. Match order:
+   *  1. same domain
+   *  2. same normalized name + state
+   *  3. typo-tolerant name match (see similarName) within a blocking key (first 3 chars + state), domains not conflicting
+   */
+  function dedupe(leads) {
+    const groups = [];
+    const byKey = new Map();
+    const blocks = new Map();
+    const blockKey = (l) => l.nameKey.slice(0, 3) + '|' + (l.state || '').toLowerCase();
+
+    const register = (g, l) => {
+      if (l.domain) byKey.set('d:' + l.domain, g);
+      if (l.nameKey) byKey.set('n:' + l.nameKey + '|' + (l.state || '').toLowerCase(), g);
+      if (l.nameKey) {
+        const bk = blockKey(l);
+        if (!blocks.has(bk)) blocks.set(bk, []);
+        if (!blocks.get(bk).includes(g)) blocks.get(bk).push(g);
+      }
+    };
+
+    leads.forEach((lead, rowIndex) => {
+      if (!lead.company && !lead.domain) return; // nothing to identify it by
+      let g = null;
+      let matchedBy = null;
+      if (lead.domain && byKey.has('d:' + lead.domain)) { g = byKey.get('d:' + lead.domain); matchedBy = 'domain'; }
+      const nk = 'n:' + lead.nameKey + '|' + (lead.state || '').toLowerCase();
+      if (!g && lead.nameKey && byKey.has(nk)) {
+        const cand = byKey.get(nk);
+        if (!lead.domain || !cand.domain || cand.domain === lead.domain) { g = cand; matchedBy = 'name'; }
+      }
+      if (!g && lead.nameKey) {
+        for (const cand of blocks.get(blockKey(lead)) || []) {
+          if (lead.domain && cand.domain && cand.domain !== lead.domain) continue;
+          if (similarName(cand.nameKey, lead.nameKey)) { g = cand; matchedBy = 'similar name'; break; }
+        }
+      }
+      if (g) {
+        mergeInto(g, lead);
+        g.duplicates.push({ row: rowIndex + 2, matchedBy, company: lead.company });
+        register(g, lead);
+      } else {
+        const copy = Object.assign({}, lead, { id: 'L' + (groups.length + 1), sourceRow: rowIndex + 2, duplicates: [] });
+        groups.push(copy);
+        register(copy, copy);
+      }
+    });
+    return groups;
+  }
+
+  // --------------------------------------------------------------- Scoring
+
+  const FACTORS = {
+    revenueFit: { label: 'Revenue fit', color: 'f1' },
+    sizeFit: { label: 'Team size fit', color: 'f2' },
+    tenure: { label: 'Operating history', color: 'f3' },
+    industryFit: { label: 'Industry fit', color: 'f4' },
+    recurring: { label: 'Recurring revenue', color: 'f5' },
+    decisionMaker: { label: 'Decision-maker contact', color: 'f6' },
+    reachability: { label: 'Reachability', color: 'f7' },
+  };
+
+  const PRESETS = {
+    acquisition: {
+      mode: 'acquisition',
+      label: 'Acquisition sourcing',
+      revenue: { min: 1e6, max: 10e6 },
+      employees: { min: 10, max: 100 },
+      minYears: 10,
+      industries: ['Home services', 'B2B services', 'IT & software', 'Healthcare services', 'Industrial'],
+      weights: { revenueFit: 25, sizeFit: 10, tenure: 15, industryFit: 15, recurring: 10, decisionMaker: 15, reachability: 10 },
+      template: 'Hi {first},\n\nI came across {company} while researching {industry} businesses in {city}. {tenure_line}I work with Caprae Capital, where we partner with owners who are thinking about the next chapter for their business, whether that is growth, a partial sale, or succession.\n\nWould you be open to a 15-minute call next week? No pressure either way.',
+    },
+    sales: {
+      mode: 'sales',
+      label: 'Sales outreach',
+      revenue: { min: 2e6, max: 50e6 },
+      employees: { min: 20, max: 500 },
+      minYears: 3,
+      industries: ['Home services', 'B2B services', 'IT & software', 'Healthcare services', 'Industrial'],
+      weights: { revenueFit: 15, sizeFit: 20, tenure: 5, industryFit: 20, recurring: 0, decisionMaker: 20, reachability: 20 },
+      template: 'Hi {first},\n\nTeams like {company}, with around {employees} people, usually hit the point where manual work starts slowing growth. We help {industry} companies in {city} win back those hours.\n\nWorth a quick 15-minute look next week?',
+    },
+  };
+
+  const UNKNOWN = 0.35; // partial credit for missing data: unknown should rank below known-good, above known-bad
+
+  function bandFit(value, min, max) {
+    if (value == null) return UNKNOWN;
+    if (value >= min && value <= max) return 1;
+    const ratio = value < min ? min / Math.max(value, 1) : value / max;
+    return Math.max(0, 1 - Math.log2(ratio) / 2); // 0 once 4× outside the band
+  }
+
+  function money(n) {
+    if (n == null) return '—';
+    if (n >= 1e9) return '$' + (n / 1e9).toFixed(n >= 1e10 ? 0 : 1) + 'B';
+    if (n >= 1e6) return '$' + (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+    if (n >= 1e3) return '$' + Math.round(n / 1e3) + 'K';
+    return '$' + Math.round(n);
+  }
+
+  function count(n) {
+    if (n == null) return '—';
+    return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function rangeLabel(r, fmt) {
+    if (!r) return '—';
+    if (r.low === r.high) return fmt(r.low);
+    if (r.low === 0) return 'under ' + fmt(r.high);
+    return fmt(r.low) + '–' + fmt(r.high);
+  }
+
+  function factorValues(lead, thesis, domainInfo) {
+    const out = {};
+    // Revenue
+    const rev = lead.revenue ? lead.revenue.mid : null;
+    out.revenueFit = { v: bandFit(rev, thesis.revenue.min, thesis.revenue.max), note: rev == null ? 'No revenue estimate' : `Est. ${rangeLabel(lead.revenue, money)} vs target ${money(thesis.revenue.min)}–${money(thesis.revenue.max)}` };
+    // Size
+    const emp = lead.employees ? lead.employees.mid : null;
+    out.sizeFit = { v: bandFit(emp, thesis.employees.min, thesis.employees.max), note: emp == null ? 'No headcount' : `${rangeLabel(lead.employees, count)} employees vs target ${thesis.employees.min}–${thesis.employees.max}` };
+    // Tenure
+    let tv = UNKNOWN;
+    let tnote = 'Founding year unknown';
+    if (lead.years != null) {
+      const min = Math.max(thesis.minYears, 1);
+      tv = lead.years >= min * 2 ? 1 : lead.years >= min ? 0.8 : 0.8 * (lead.years / min);
+      tnote = `${lead.years} years in business (since ${lead.founded})`;
+    }
+    out.tenure = { v: tv, note: tnote };
+    // Industry
+    let iv = 0.3;
+    let inote = 'No industry listed';
+    if (lead.industryGroup) {
+      iv = thesis.industries.includes(lead.industryGroup) ? 1 : 0.1;
+      inote = `${lead.industry} → ${lead.industryGroup}${iv === 1 ? '' : ' (outside thesis)'}`;
+    }
+    out.industryFit = { v: iv, note: inote };
+    // Recurring
+    out.recurring = lead.industry
+      ? { v: lead.recurring ? 1 : 0.2, note: lead.recurring ? 'Service-contract or subscription style business' : 'Mostly project or transactional revenue' }
+      : { v: 0.3, note: 'No industry listed' };
+    // Decision maker
+    const dmTable = thesis.mode === 'acquisition'
+      ? { owner: 1, executive: 0.55, director: 0.35, manager: 0.2, staff: 0.1, unknown: 0.2 }
+      : { owner: 1, executive: 0.9, director: 0.75, manager: 0.45, staff: 0.15, unknown: 0.2 };
+    let dv = dmTable[lead.seniority];
+    if (lead.seniority === 'unknown' && lead.contactName) dv = 0.35;
+    out.decisionMaker = { v: dv, note: lead.contactName ? (lead.title ? `${lead.contactName}, ${lead.title}` : `${lead.contactName} (title unknown)`) : 'No named contact' };
+    // Reachability
+    const e = effectiveEmail(lead, domainInfo);
+    let ev = 0;
+    if (e.status === 'valid') ev = e.type === 'direct' ? (e.matchesCompany ? 0.65 : 0.55) : e.type === 'personal' ? 0.5 : 0.25;
+    const pv = lead.phone.status === 'valid' ? (lead.contactName ? 0.3 : 0.15) : 0;
+    const lv = lead.linkedin ? 0.05 : 0;
+    let rv = Math.min(1, ev + pv + lv);
+    const site = domainInfo && lead.domain ? domainInfo[lead.domain] : null;
+    if (site && site.resolves === false) rv *= 0.7;
+    const bits = [e.label, lead.phone.status === 'valid' ? (lead.contactName ? 'phone ok' : 'main line only') : lead.phone.label.toLowerCase()];
+    if (site && site.resolves === false) bits.push('website domain does not resolve');
+    out.reachability = { v: rv, note: bits.join(', ') };
+    return out;
+  }
+
+  /** Email status after applying the API's MX result for its domain (if we have one). */
+  function effectiveEmail(lead, domainInfo) {
+    const e = lead.email;
+    if (e.status !== 'valid' || !domainInfo) return e;
+    const info = domainInfo[e.domain];
+    if (info && info.has_mx === false) return Object.assign({}, e, { status: 'invalid', label: 'Domain cannot receive email' });
+    if (info && info.has_mx === true) return Object.assign({}, e, { mxVerified: true, label: e.label + ', MX verified' });
+    return e;
+  }
+
+  const TIERS = [
+    { id: 'A', min: 80, label: 'Strong fit' },
+    { id: 'B', min: 65, label: 'Good fit' },
+    { id: 'C', min: 45, label: 'Weak fit' },
+    { id: 'D', min: 0, label: 'Poor fit' },
+  ];
+
+  function tierFor(score) {
+    return TIERS.find((t) => score >= t.min).id;
+  }
+
+  /**
+   * Queue = the next action. This is where enrichment credits get saved:
+   *  contact  — strong/good fit and already reachable by a person-level channel
+   *  enrich   — strong/good fit but missing a usable email or phone → spend a credit
+   *  hold     — weak fit; revisit if the thesis changes
+   *  skip     — poor fit or nothing to identify / reach it by
+   */
+  function queueFor(tier, lead, email) {
+    const reachable = personReachable(lead, email);
+    if (!lead.domain && !reachable) return 'skip';
+    if (tier === 'A' || tier === 'B') return reachable ? 'contact' : 'enrich';
+    if (tier === 'C') return 'hold';
+    return 'skip';
+  }
+
+  /**
+   * Can we reach a specific person today without spending a credit?
+   * A personal/direct inbox counts. A phone counts only when we know who we're calling;
+   * a company main line with no name is what enrichment is for.
+   */
+  function personReachable(lead, email) {
+    const e = email || lead.emailEffective || lead.email;
+    return (e.status === 'valid' && e.type !== 'role') || (!!lead.contactName && lead.phone.status === 'valid');
+  }
+
+  function reasons(lead, thesis, f) {
+    const out = [];
+    if (thesis.mode === 'acquisition') {
+      if (lead.years != null && lead.years >= 25) out.push(`${lead.years} years in operation; succession is a natural conversation`);
+      else if (lead.years != null && lead.years >= thesis.minYears) out.push(`${lead.years}-year operating history`);
+    }
+    if (f.revenueFit.v === 1) out.push(`Revenue ${rangeLabel(lead.revenue, money)} is inside your band`);
+    if (lead.recurring && thesis.weights.recurring > 0) out.push('Likely recurring revenue');
+    if (lead.seniority === 'owner') out.push('Owner is the named contact');
+    if (f.sizeFit.v === 1 && thesis.mode === 'sales') out.push(`${rangeLabel(lead.employees, count)} employees, inside your size band`);
+    const risks = [];
+    if (lead.email.status === 'invalid') risks.push(lead.email.label);
+    if (lead.email.status === 'valid' && lead.email.type === 'role') risks.push('Only a shared inbox');
+    if (f.industryFit.v < 0.5 && lead.industryGroup) risks.push('Industry outside thesis');
+    if (lead.revenue && f.revenueFit.v < 0.5) risks.push(lead.revenue.mid < thesis.revenue.min ? 'Smaller than target' : 'Larger than target');
+    return { positives: out.slice(0, 3), risks: risks.slice(0, 2) };
+  }
+
+  /** Score every lead against a thesis. Pure; safe to call on every slider move. */
+  function scoreLeads(leads, thesis, domainInfo) {
+    const wTotal = Object.values(thesis.weights).reduce((a, b) => a + b, 0) || 1;
+    const scored = leads.map((lead) => {
+      const f = factorValues(lead, thesis, domainInfo);
+      const breakdown = Object.keys(FACTORS).map((k) => {
+        const max = (thesis.weights[k] / wTotal) * 100;
+        return { key: k, label: FACTORS[k].label, color: FACTORS[k].color, points: f[k].v * max, max, note: f[k].note, value: f[k].v };
+      });
+      const score = Math.round(breakdown.reduce((a, b) => a + b.points, 0));
+      const email = effectiveEmail(lead, domainInfo);
+      const tier = tierFor(score);
+      return Object.assign({}, lead, {
+        score, tier, breakdown, emailEffective: email,
+        queue: queueFor(tier, lead, email),
+        missing: missingFields(lead),
+        why: reasons(lead, thesis, f),
+      });
+    });
+    scored.sort((a, b) => b.score - a.score || (a.company < b.company ? -1 : a.company > b.company ? 1 : 0));
+    scored.forEach((l, i) => { l.rank = i + 1; });
+    return scored;
+  }
+
+  function isReachable(l) {
+    return personReachable(l);
+  }
+
+  function summarize(rowCount, scored) {
+    const by = (k, v) => scored.filter((l) => l[k] === v).length;
+    const reachable = scored.filter(isReachable).length;
+    const enrich = by('queue', 'enrich');
+    const unreachable = scored.length - reachable;
+    return {
+      rows: rowCount,
+      unique: scored.length,
+      duplicatesMerged: scored.reduce((a, l) => a + l.duplicates.length, 0),
+      reachable,
+      strongFit: scored.filter((l) => l.tier === 'A' || l.tier === 'B').length,
+      tiers: { A: by('tier', 'A'), B: by('tier', 'B'), C: by('tier', 'C'), D: by('tier', 'D') },
+      queues: { contact: by('queue', 'contact'), enrich, hold: by('queue', 'hold'), skip: by('queue', 'skip') },
+      creditsIfEnrichAll: unreachable,
+      creditsSaved: Math.max(0, unreachable - enrich),
+      invalidEmails: scored.filter((l) => (l.emailEffective || l.email).status === 'invalid').length,
+    };
+  }
+
+  // ------------------------------------------------------------- Outreach
+
+  function renderTemplate(template, lead) {
+    const tenure = lead.years != null && lead.years >= 5 ? `${lead.years} years is a real track record. ` : '';
+    const vars = {
+      first: lead.firstName || 'there',
+      company: lead.company || 'your company',
+      city: lead.city || 'your area',
+      industry: (lead.industry || 'local').toLowerCase(),
+      employees: lead.employees ? Math.round(lead.employees.mid) : 'a few dozen',
+      years: lead.years != null ? lead.years : '',
+      title: lead.title || '',
+      tenure_line: tenure,
+    };
+    return template.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  }
+
+  // --------------------------------------------------------------- Export
+
+  const EXPORTS = {
+    ranked: {
+      label: 'Ranked list (CSV)',
+      filename: 'triage-ranked.csv',
+      headers: ['Rank', 'Tier', 'Score', 'Next step', 'Company', 'Website', 'Industry', 'Employees', 'Revenue', 'Year founded', 'City', 'State', 'Contact', 'Title', 'Email', 'Email status', 'Phone', 'LinkedIn', 'Why', 'Risks', 'Missing', 'Duplicates merged'],
+      row: (l, ctx) => ({
+        Rank: l.rank, Tier: l.tier, Score: l.score, 'Next step': QUEUE_LABEL[l.queue], Company: l.company, Website: l.domain,
+        Industry: l.industry, Employees: l.employeesRaw, Revenue: l.revenueRaw, 'Year founded': l.founded || '', City: l.city, State: l.state,
+        Contact: l.contactName, Title: l.title, Email: l.emailEffective.address || l.emailRaw, 'Email status': l.emailEffective.label,
+        Phone: l.phone.display || l.phoneRaw, LinkedIn: l.linkedin, Why: l.why.positives.join('; '), Risks: l.why.risks.join('; '),
+        Missing: l.missing.join('; '), 'Duplicates merged': l.duplicates.length,
+      }),
+    },
+    hubspot: {
+      label: 'HubSpot import (CSV)',
+      filename: 'triage-hubspot.csv',
+      headers: ['First Name', 'Last Name', 'Email', 'Phone Number', 'Job Title', 'Company Name', 'Company Domain Name', 'Industry', 'Number of Employees', 'Annual Revenue', 'City', 'State/Region', 'Lead Status', 'Triage Score', 'Triage Tier', 'Triage Notes'],
+      row: (l) => ({
+        'First Name': l.firstName, 'Last Name': l.lastName,
+        Email: l.emailEffective.status === 'valid' ? l.emailEffective.address : '',
+        'Phone Number': l.phone.e164 || '', 'Job Title': l.title, 'Company Name': l.company, 'Company Domain Name': l.domain,
+        Industry: l.industry, 'Number of Employees': l.employees ? Math.round(l.employees.mid) : '',
+        'Annual Revenue': l.revenue ? Math.round(l.revenue.mid) : '', City: l.city, 'State/Region': l.state, 'Lead Status': 'NEW',
+        'Triage Score': l.score, 'Triage Tier': l.tier, 'Triage Notes': l.why.positives.concat(l.why.risks).join('; '),
+      }),
+      filter: (l) => l.queue === 'contact',
+    },
+    enrich: {
+      label: 'Enrichment queue (CSV)',
+      filename: 'triage-enrich-queue.csv',
+      headers: ['Rank', 'Score', 'Company', 'Website', 'City', 'State', 'Contact', 'Missing'],
+      row: (l) => ({ Rank: l.rank, Score: l.score, Company: l.company, Website: l.domain, City: l.city, State: l.state, Contact: l.contactName, Missing: l.missing.filter((m) => m === 'email' || m === 'phone' || m === 'contact name').join('; ') }),
+      filter: (l) => l.queue === 'enrich',
+    },
+  };
+
+  const QUEUE_LABEL = { contact: 'Contact now', enrich: 'Enrich first', hold: 'Hold', skip: 'Skip' };
+
+  function exportCSV(kind, scored) {
+    const def = EXPORTS[kind];
+    const rows = scored.filter(def.filter || (() => true)).map((l) => def.row(l));
+    return { filename: def.filename, csv: toCSV(def.headers, rows), count: rows.length };
+  }
+
+  function domainsToCheck(leads) {
+    const set = new Set();
+    for (const l of leads) {
+      if (l.domain) set.add(l.domain);
+      if (l.email.status === 'valid' && l.email.domain && !FREE_EMAIL.has(l.email.domain)) set.add(l.email.domain);
+    }
+    return Array.from(set);
+  }
+
+  /** Convenience: full pass from CSV text. */
+  function process(text, opts) {
+    const { headers, records } = parseCSV(text);
+    const mapping = (opts && opts.mapping) || detectColumns(headers);
+    const normalized = records.map((r) => normalize(r, mapping, opts));
+    const leads = dedupe(normalized);
+    return { headers, mapping, rowCount: records.length, leads };
+  }
+
+  function clonePreset(mode) {
+    return JSON.parse(JSON.stringify(PRESETS[mode]));
+  }
+
+  return {
+    parseCSV, toCSV, detectColumns, normalize, dedupe, scoreLeads, summarize, renderTemplate, exportCSV, process,
+    checkEmail, checkPhone, parseRange, extractDomain, nameKey, classifyTitle, industryGroup, similarity, domainsToCheck,
+    clonePreset, money, count, rangeLabel,
+    FIELDS, FACTORS, PRESETS, TIERS, QUEUE_LABEL, EXPORTS, INDUSTRY_GROUP_NAMES, SENIORITY_LABEL,
+  };
+});
+
+</script>
+  <script>
+/* Triage UI controller. All scoring happens in TriageEngine (engine.js). */
+(function () {
+  'use strict';
+  const E = window.TriageEngine;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const PAGE = 100;
+  const STORAGE_KEY = 'triage:thesis:v1';
+  const SAMPLE_NAME = 'sample_saasquatch_export.csv';
+
+  const state = {
+    rowCount: 0,
+    leads: [],
+    scored: [],
+    summary: null,
+    thesis: loadThesis(),
+    domainInfo: {},
+    view: 'contact',
+    query: '',
+    shown: PAGE,
+    selected: null,
+    api: { online: false, base: '', mode: null },
+    pending: null, // parsed CSV awaiting mapping confirmation
+    listName: '',
+    isSample: false,
+  };
+
+  // ------------------------------------------------------------ persistence
+
+  function loadThesis() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const t = JSON.parse(raw);
+        if (t && t.mode && E.PRESETS[t.mode] && t.weights) return t;
+      }
+    } catch (e) { /* storage unavailable */ }
+    return E.clonePreset('acquisition');
+  }
+
+  function saveThesis() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.thesis)); } catch (e) { /* ignore */ }
+  }
+
+  // --------------------------------------------------------------------- API
+
+  function apiBase() {
+    if (typeof window.TRIAGE_API_BASE === 'string') return window.TRIAGE_API_BASE.replace(/\/$/, '');
+    return '';
+  }
+
+  async function apiFetch(path, opts, timeoutMs) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs || 15000);
+    try {
+      const res = await fetch(state.api.base + path, Object.assign({ signal: ctrl.signal, headers: { 'Content-Type': 'application/json' } }, opts));
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+      return res.status === 204 ? null : res.json();
+    } finally { clearTimeout(t); }
+  }
+
+  async function checkApi() {
+    state.api.base = apiBase();
+    const pill = $('apiStatus');
+    if (location.protocol === 'file:' && !state.api.base) return setOffline();
+    try {
+      const h = await apiFetch('/api/health', { method: 'GET' }, 2500);
+      state.api.online = true;
+      state.api.mode = h.dns_mode;
+      pill.dataset.state = 'online';
+      pill.textContent = h.dns_mode === 'mx' ? 'Mail-server checks on' : 'Domain checks on';
+      pill.title = 'Connected to the Triage API. Domains are checked for DNS and MX records and cached for ' + Math.round(h.cache_ttl_days) + ' days.';
+      $('listMenuWrap').hidden = false;
+    } catch (e) { setOffline(); }
+
+    function setOffline() {
+      state.api.online = false;
+      pill.dataset.state = 'offline';
+      pill.textContent = 'Offline mode';
+      pill.title = 'Running fully in the browser. Connect the Triage API to verify that email domains can receive mail.';
+    }
+  }
+
+  async function runDomainChecks() {
+    if (!state.api.online || !state.leads.length) return;
+    if (state.isSample) {
+      toast('Sample data uses invented domains, so mail-server checks are skipped. Import a real export to see them.');
+      return;
+    }
+    const domains = E.domainsToCheck(state.leads).filter((d) => !(d in state.domainInfo));
+    if (!domains.length) return;
+    const pill = $('apiStatus');
+    pill.dataset.state = 'busy';
+    let done = 0;
+    let cacheHits = 0;
+    try {
+      for (let i = 0; i < domains.length; i += 200) {
+        const batch = domains.slice(i, i + 200);
+        pill.textContent = `Checking domains ${done}/${domains.length}`;
+        const r = await apiFetch('/api/domains/check', { method: 'POST', body: JSON.stringify({ domains: batch }) }, 30000);
+        Object.assign(state.domainInfo, r.results);
+        done += batch.length;
+        cacheHits += r.stats.cache_hits;
+        rescore();
+      }
+      const dead = Object.values(state.domainInfo).filter((d) => d.has_mx === false).length;
+      toast(`Checked ${done} domains (${cacheHits} from cache). ${dead} cannot receive email.`);
+    } catch (e) {
+      toast('Domain checks stopped: ' + e.message);
+    } finally {
+      pill.dataset.state = 'online';
+      pill.textContent = state.api.mode === 'mx' ? 'Mail-server checks on' : 'Domain checks on';
+    }
+  }
+
+  // ------------------------------------------------------------------ import
+
+  function readFile(file) {
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) return toast('That file is over 25 MB. Split it and import the parts.');
+    const reader = new FileReader();
+    reader.onload = () => beginImport(String(reader.result), file.name);
+    reader.onerror = () => toast('Could not read that file. Export it again as CSV and retry.');
+    reader.readAsText(file);
+  }
+
+  function beginImport(text, name) {
+    const parsed = E.parseCSV(text);
+    if (!parsed.headers.length || !parsed.records.length) return toast('No rows found. Check that the file is a CSV with a header row.');
+    state.pending = { parsed, name, mapping: E.detectColumns(parsed.headers), isSample: name === SAMPLE_NAME };
+    if (!state.pending.mapping.company && !state.pending.mapping.website) {
+      toast('Could not find a company or website column. Pick them below.');
+    }
+    openMapping();
+  }
+
+  function openMapping() {
+    const { parsed, mapping, name } = state.pending;
+    const found = Object.keys(mapping).length;
+    $('mapSummary').textContent = `${parsed.records.length.toLocaleString()} rows in ${name}. Matched ${found} of ${parsed.headers.length} columns. Fix anything that looks wrong.`;
+    const sample = parsed.records.find((r) => Object.values(r).filter(Boolean).length > 4) || parsed.records[0];
+    const opts = ['<option value="">Not in this file</option>'].concat(parsed.headers.map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)).join('');
+    const important = ['company', 'website', 'industry', 'revenue', 'employees', 'founded', 'contactName', 'title', 'email', 'phone', 'city', 'state'];
+    const rest = Object.keys(E.FIELDS).filter((f) => !important.includes(f));
+    $('mapFields').innerHTML = important.concat(rest).map((f) => {
+      const h = mapping[f] || '';
+      return `<label>${esc(E.FIELDS[f].label)}
+        <select data-field="${f}">${opts}</select>
+        <span class="example" data-example="${f}">${h && sample[h] ? 'e.g. ' + esc(sample[h]) : '&nbsp;'}</span></label>`;
+    }).join('');
+    $('mapFields').querySelectorAll('select').forEach((sel) => {
+      sel.value = mapping[sel.dataset.field] || '';
+      sel.addEventListener('change', () => {
+        const ex = $('mapFields').querySelector(`[data-example="${sel.dataset.field}"]`);
+        ex.innerHTML = sel.value && sample[sel.value] ? 'e.g. ' + esc(sample[sel.value]) : '&nbsp;';
+      });
+    });
+    $('mapDialog').showModal();
+  }
+
+  function confirmMapping() {
+    const mapping = {};
+    $('mapFields').querySelectorAll('select').forEach((sel) => { if (sel.value) mapping[sel.dataset.field] = sel.value; });
+    if (!mapping.company && !mapping.website) {
+      toast('Pick at least a company name or website column.');
+      return false;
+    }
+    const { parsed, name, isSample } = state.pending;
+    const t0 = performance.now();
+    state.isSample = !!isSample;
+    const normalized = parsed.records.map((r) => E.normalize(r, mapping));
+    state.leads = E.dedupe(normalized);
+    state.rowCount = parsed.records.length;
+    state.domainInfo = {};
+    state.listName = name.replace(/\.[a-z]+$/i, '');
+    state.pending = null;
+    state.view = 'contact';
+    state.shown = PAGE;
+    rescore();
+    $('empty').hidden = true;
+    $('board').hidden = false;
+    $('funnel').hidden = false;
+    $('saveListBtn').disabled = false;
+    $('exportMenu').querySelector('summary').removeAttribute('aria-disabled');
+    const ms = Math.round(performance.now() - t0);
+    toast(`Scored ${state.leads.length.toLocaleString()} companies in ${ms} ms.`);
+    $('main').focus();
+    runDomainChecks();
+    return true;
+  }
+
+  // ------------------------------------------------------------------ scoring
+
+  let raf = 0;
+  function scheduleRescore() {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(rescore);
+  }
+
+  function rescore() {
+    if (!state.leads.length) return;
+    state.scored = E.scoreLeads(state.leads, state.thesis, state.domainInfo);
+    state.summary = E.summarize(state.rowCount, state.scored);
+    renderFunnel();
+    renderTabs();
+    renderRows();
+    if (state.selected) {
+      const lead = state.scored.find((l) => l.id === state.selected);
+      if (lead) renderDrawer(lead);
+    }
+  }
+
+  // ------------------------------------------------------------------- thesis
+
+  function renderThesis() {
+    const t = state.thesis;
+    document.querySelectorAll('.segmented [data-mode]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === t.mode)));
+    $('modeHelp').textContent = t.mode === 'acquisition'
+      ? 'Favors owner-run businesses with long operating histories and repeat revenue.'
+      : 'Favors companies big enough to buy, with a reachable decision maker.';
+    $('revMin').value = +(t.revenue.min / 1e6).toFixed(2);
+    $('revMax').value = +(t.revenue.max / 1e6).toFixed(2);
+    $('empMin').value = t.employees.min;
+    $('empMax').value = t.employees.max;
+    $('minYears').value = t.minYears;
+    $('industryList').innerHTML = E.INDUSTRY_GROUP_NAMES.concat(['Other']).map((g) =>
+      `<label><input type="checkbox" value="${esc(g)}" ${t.industries.includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('');
+    renderWeights();
+    $('template').value = t.template;
+  }
+
+  function renderWeights() {
+    const t = state.thesis;
+    const total = Object.values(t.weights).reduce((a, b) => a + b, 0) || 1;
+    $('weights').innerHTML = Object.entries(E.FACTORS).map(([k, f]) =>
+      `<div class="weight">
+        <span class="swatch" style="background:var(--${f.color})"></span>
+        <label for="w-${k}">${esc(f.label)}</label>
+        <output for="w-${k}" id="o-${k}">${Math.round((t.weights[k] / total) * 100)}%</output>
+        <input id="w-${k}" type="range" min="0" max="40" step="1" value="${t.weights[k]}" data-weight="${k}">
+      </div>`).join('');
+  }
+
+  function updateWeightOutputs() {
+    const t = state.thesis;
+    const total = Object.values(t.weights).reduce((a, b) => a + b, 0) || 1;
+    for (const k of Object.keys(E.FACTORS)) $('o-' + k).textContent = Math.round((t.weights[k] / total) * 100) + '%';
+  }
+
+  function bindThesis() {
+    document.querySelectorAll('.segmented [data-mode]').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.mode === state.thesis.mode) return;
+      state.thesis = E.clonePreset(b.dataset.mode);
+      onThesisChange(true);
+    }));
+    $('resetThesis').addEventListener('click', () => { state.thesis = E.clonePreset(state.thesis.mode); onThesisChange(true); toast('Thesis reset to the ' + state.thesis.label.toLowerCase() + ' defaults.'); });
+    const num = (id, fn) => $(id).addEventListener('input', () => { const v = parseFloat($(id).value); if (!isNaN(v) && v >= 0) { fn(v); onThesisChange(); } });
+    num('revMin', (v) => { state.thesis.revenue.min = v * 1e6; });
+    num('revMax', (v) => { state.thesis.revenue.max = v * 1e6; });
+    num('empMin', (v) => { state.thesis.employees.min = v; });
+    num('empMax', (v) => { state.thesis.employees.max = v; });
+    num('minYears', (v) => { state.thesis.minYears = v; });
+    $('industryList').addEventListener('change', () => {
+      state.thesis.industries = Array.from($('industryList').querySelectorAll('input:checked')).map((i) => i.value);
+      onThesisChange();
+    });
+    $('weights').addEventListener('input', (e) => {
+      const k = e.target.dataset.weight;
+      if (!k) return;
+      state.thesis.weights[k] = parseInt(e.target.value, 10);
+      updateWeightOutputs();
+      onThesisChange();
+    });
+    $('template').addEventListener('input', () => { state.thesis.template = $('template').value; saveThesis(); if (state.selected) updateOpener(); });
+  }
+
+  function onThesisChange(full) {
+    if (full) renderThesis();
+    saveThesis();
+    scheduleRescore();
+  }
+
+  // ------------------------------------------------------------------- funnel
+
+  function renderFunnel() {
+    const s = state.summary;
+    const pct = (n) => (s.rows ? Math.max(2, (n / s.rows) * 100) : 0) + '%';
+    const stage = (n, label, sub) => `<div class="stage"><div class="stage-n">${n.toLocaleString()}</div><div class="stage-label">${label}</div>${sub ? `<div class="stage-sub">${sub}</div>` : ''}<div class="sieve"><i style="width:${pct(n)}"></i></div></div>`;
+    const credits = s.creditsSaved > 0
+      ? `Uses ${s.queues.enrich} credits, not ${s.creditsIfEnrichAll}`
+      : `${s.queues.enrich} credits`;
+    $('funnel').innerHTML =
+      stage(s.rows, 'Rows imported', s.rows - s.unique > 0 ? `${(s.rows - s.unique).toLocaleString()} duplicate or blank rows` : '') +
+      stage(s.unique, 'Unique companies', s.invalidEmails ? `${s.invalidEmails} bad emails flagged` : '') +
+      stage(s.reachable, 'Reach a person today', 'Without spending a credit') +
+      stage(s.strongFit, 'Strong or good fit', `${s.tiers.A} in tier A, ${s.tiers.B} in tier B`) +
+      `<div class="outcome">
+        <button type="button" class="outcome-card contact" data-view="contact"><div class="stage-n">${s.queues.contact}</div><div class="stage-label">Contact now</div><div class="stage-sub">Fit and reachable</div></button>
+        <button type="button" class="outcome-card enrich" data-view="enrich"><div class="stage-n">${s.queues.enrich}</div><div class="stage-label">Worth enriching</div><div class="stage-sub">${credits}</div></button>
+      </div>`;
+  }
+
+  // -------------------------------------------------------------------- table
+
+  const TABS = [
+    ['contact', 'Contact now'],
+    ['enrich', 'Enrich first'],
+    ['hold', 'Hold'],
+    ['skip', 'Skip'],
+    ['all', 'All'],
+  ];
+
+  function renderTabs() {
+    const q = state.summary.queues;
+    const counts = Object.assign({ all: state.summary.unique }, q);
+    $('tabs').innerHTML = TABS.map(([id, label]) =>
+      `<button class="tab" role="tab" type="button" data-view="${id}" aria-selected="${state.view === id}">${label}<span class="count">${counts[id]}</span></button>`).join('');
+  }
+
+  function visibleLeads() {
+    const q = state.query.trim().toLowerCase();
+    return state.scored.filter((l) => (state.view === 'all' || l.queue === state.view) &&
+      (!q || [l.company, l.city, l.state, l.contactName, l.domain, l.industry].some((v) => v && String(v).toLowerCase().includes(q))));
+  }
+
+  function emailDot(l) {
+    const e = l.emailEffective;
+    if (e.status === 'missing') return 'dot-none';
+    if (e.status === 'invalid') return 'dot-bad';
+    return e.type === 'role' ? 'dot-warn' : 'dot-ok';
+  }
+
+  function renderRows() {
+    const list = visibleLeads();
+    const rows = list.slice(0, state.shown);
+    if (!rows.length) {
+      const msg = state.query ? 'No leads match that search.' : {
+        contact: 'No reachable strong-fit leads yet. Check the Enrich first tab, or widen your thesis.',
+        enrich: 'Nothing needs enriching. Every strong-fit lead already has a way to reach the owner.',
+        hold: 'No weak-fit leads.', skip: 'Nothing to skip.', all: 'No leads.',
+      }[state.view];
+      $('rows').innerHTML = `<tr class="no-rows"><td colspan="6">${msg}</td></tr>`;
+    } else {
+      $('rows').innerHTML = rows.map((l) => {
+        const sig = [l.industryGroup || l.industry, l.revenue ? E.rangeLabel(l.revenue, E.money) : '', l.employees ? E.rangeLabel(l.employees, E.count) + ' staff' : '', l.years != null ? l.years + ' yrs' : '']
+          .filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join('');
+        const contact = l.contactName
+          ? `<div class="contact-line"><span class="dot ${emailDot(l)}" title="${esc(l.emailEffective.label)}"></span>${esc(l.contactName)}</div><div class="sub">${esc(l.title || E.SENIORITY_LABEL[l.seniority])}</div>`
+          : `<div class="contact-line"><span class="dot ${emailDot(l)}" title="${esc(l.emailEffective.label)}"></span><span class="sub">No named contact</span></div>`;
+        return `<tr data-id="${l.id}" tabindex="0" ${state.selected === l.id ? 'aria-current="true"' : ''}>
+          <td class="num">${l.rank}</td>
+          <td><div class="score"><span class="tier tier-${l.tier}" title="${esc(E.TIERS.find((t) => t.id === l.tier).label)}">${l.tier}</span><b>${l.score}</b></div></td>
+          <td><div class="co-name">${esc(l.company || l.domain)}</div><div class="sub meta">${l.domain ? `<span>${esc(l.domain)}</span>` : ''}${l.city || l.state ? `<span>${esc([l.city, l.state].filter(Boolean).join(', '))}</span>` : ''}</div></td>
+          <td><div class="signals">${sig || '<span class="sub">Not enough data</span>'}</div></td>
+          <td>${contact}</td>
+          <td><span class="queue queue-${l.queue}">${E.QUEUE_LABEL[l.queue]}</span></td>
+        </tr>`;
+      }).join('');
+    }
+    $('shownCount').textContent = list.length ? `Showing ${Math.min(state.shown, list.length)} of ${list.length}` : '';
+    $('moreBtn').hidden = list.length <= state.shown;
+  }
+
+  // ------------------------------------------------------------------- drawer
+
+  function openDrawer(id) {
+    const lead = state.scored.find((l) => l.id === id);
+    if (!lead) return;
+    state.selected = id;
+    renderDrawer(lead);
+    $('drawer').hidden = false;
+    $('scrim').hidden = false;
+    renderRows();
+    $('drawer').querySelector('.close').focus();
+  }
+
+  function closeDrawer() {
+    const id = state.selected;
+    state.selected = null;
+    $('drawer').hidden = true;
+    $('scrim').hidden = true;
+    renderRows();
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (row) row.focus();
+  }
+
+  function renderDrawer(l) {
+    const tier = E.TIERS.find((t) => t.id === l.tier);
+    const anatomy = l.breakdown.map((f) => `<i style="width:${f.points}%;background:var(--${f.color})" title="${esc(f.label)}: ${f.points.toFixed(1)}"></i>`).join('');
+    const factors = l.breakdown.filter((f) => f.max > 0).map((f) =>
+      `<li class="factor"><span class="swatch" style="background:var(--${f.color})"></span><span>${esc(f.label)}</span><span class="pts">${Math.round(f.points)} / ${Math.round(f.max)}</span><span class="note">${esc(f.note)}</span></li>`).join('');
+    const why = l.why.positives.map((p) => `<li class="pos">${esc(p)}</li>`).concat(l.why.risks.map((r) => `<li class="neg">${esc(r)}</li>`)).join('') || '<li class="sub">Nothing stands out either way.</li>';
+    const site = l.domain ? state.domainInfo[l.domain] : null;
+    const siteText = !l.domain ? 'No website' : !site ? (state.api.online ? 'Not checked yet' : 'Not checked (offline mode)') : site.resolves === false ? 'Does not resolve' : site.has_mx === true ? 'Resolves, accepts email' : site.has_mx === false ? 'Resolves, no mail server' : 'Resolves';
+    const siteDot = !site ? 'dot-none' : site.resolves === false || site.has_mx === false ? 'dot-bad' : 'dot-ok';
+    const phoneDot = l.phone.status === 'valid' ? 'dot-ok' : l.phone.status === 'missing' ? 'dot-none' : 'dot-bad';
+    const dups = l.duplicates.length ? `${l.duplicates.length} merged (rows ${l.duplicates.map((d) => d.row).join(', ')})` : 'None';
+    const next = {
+      contact: 'Reach out now. You have a direct way to the decision maker.',
+      enrich: 'Spend a SaaSquatch credit here. It fits, but there is no direct way to reach the owner yet.',
+      hold: 'Park it. It is a weak fit for the current thesis.',
+      skip: 'Skip it. Poor fit, or nothing to reach it by.',
+    }[l.queue];
+
+    $('drawerBody').innerHTML = `
+      <div class="d-head">
+        <div><h2>${esc(l.company || l.domain)}</h2>
+          <div class="sub meta">${l.industry ? `<span>${esc(l.industry)}</span>` : ''}${l.city || l.state ? `<span>${esc([l.city, l.state].filter(Boolean).join(', '))}</span>` : ''}</div>
+          ${l.domain ? `<div class="sub"><a href="https://${esc(l.domain)}" target="_blank" rel="noopener noreferrer">${esc(l.domain)}</a></div>` : ''}
+        </div>
+        <button class="close" type="button" aria-label="Close lead detail">×</button>
+      </div>
+      <div class="d-score"><b>${l.score}</b><span class="tier tier-${l.tier}">${l.tier}</span><span>${esc(tier.label)}, rank ${l.rank} of ${state.scored.length}</span></div>
+      <div class="anatomy" role="img" aria-label="Score breakdown">${anatomy}</div>
+      <ul class="factors">${factors}</ul>
+
+      <div class="d-section"><h3>Next step: ${E.QUEUE_LABEL[l.queue]}</h3><p class="sub" style="margin:0 0 8px">${esc(next)}</p><ul class="why">${why}</ul></div>
+
+      <div class="d-section"><h3>Data quality</h3>
+        <dl class="kv">
+          <dt>Contact</dt><dd>${esc(l.contactName || '—')}${l.title ? ', ' + esc(l.title) : ''}</dd>
+          <dt>Email</dt><dd><span class="dot ${emailDot(l)}"></span>${esc(l.emailEffective.address || l.emailRaw || '—')} <span class="sub">${esc(l.emailEffective.label)}</span></dd>
+          <dt>Phone</dt><dd><span class="dot ${phoneDot}"></span>${esc(l.phone.display || l.phoneRaw || '—')} <span class="sub">${esc(l.phone.label)}</span></dd>
+          <dt>Website</dt><dd><span class="dot ${siteDot}"></span>${esc(siteText)}</dd>
+          <dt>Duplicates</dt><dd>${esc(dups)}</dd>
+          <dt>Missing</dt><dd>${esc(l.missing.join(', ') || 'Nothing')}</dd>
+        </dl>
+      </div>
+
+      <div class="d-section"><h3>First-touch message</h3>
+        <textarea class="opener" id="opener" aria-label="Message for this lead"></textarea>
+        <div class="d-actions">
+          <button class="btn btn-primary" type="button" id="copyOpener">Copy message</button>
+          ${l.emailEffective.status === 'valid' ? `<a class="btn btn-quiet" id="mailOpener" href="#">Open in email</a>` : ''}
+        </div>
+      </div>`;
+    updateOpener();
+    $('drawerBody').querySelector('.close').addEventListener('click', closeDrawer);
+    $('copyOpener').addEventListener('click', () => copy($('opener').value, 'Message copied.'));
+    const mail = $('mailOpener');
+    if (mail) mail.addEventListener('click', (e) => {
+      e.preventDefault();
+      const subject = encodeURIComponent(l.company ? `Quick question about ${l.company}` : 'Quick question');
+      window.location.href = `mailto:${l.emailEffective.address}?subject=${subject}&body=${encodeURIComponent($('opener').value)}`;
+    });
+  }
+
+  function updateOpener() {
+    const l = state.scored.find((x) => x.id === state.selected);
+    if (l && $('opener')) $('opener').value = E.renderTemplate(state.thesis.template, l);
+  }
+
+  // ------------------------------------------------------------ export, lists
+
+  function download(kind) {
+    if (!state.scored.length) return;
+    const { filename, csv, count } = E.exportCSV(kind, state.scored);
+    if (!count) return toast('Nothing to export in that list yet.');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (state.listName ? state.listName + '-' : '') + filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast(`Exported ${count} rows.`);
+  }
+
+  async function saveList() {
+    $('saveName').value = state.listName || 'Triage list';
+    $('saveDialog').showModal();
+  }
+
+  async function doSave(name) {
+    try {
+      const meta = await apiFetch('/api/lists', { method: 'POST', body: JSON.stringify({ name, thesis: state.thesis, leads: state.leads }) });
+      state.listName = meta.name;
+      toast(`Saved "${meta.name}" (${meta.lead_count} companies).`);
+    } catch (e) { toast('Could not save: ' + e.message); }
+  }
+
+  async function openLists() {
+    $('listsBody').innerHTML = '<p class="sub">Loading…</p>';
+    $('listsDialog').showModal();
+    try {
+      const { lists } = await apiFetch('/api/lists', { method: 'GET' });
+      $('listsBody').innerHTML = lists.length
+        ? `<ul class="saved">${lists.map((x) => `<li><div><strong>${esc(x.name)}</strong><div class="sub">${x.lead_count} companies, saved ${new Date(x.created_at * 1000).toLocaleString()}</div></div><span><button class="btn btn-quiet" type="button" data-load="${x.id}">Open</button> <button class="link-btn" type="button" data-del="${x.id}">Delete</button></span></li>`).join('')}</ul>`
+        : '<p class="sub">No saved lists yet. Import an export and use Save list.</p>';
+    } catch (e) { $('listsBody').innerHTML = `<p class="sub">Could not load lists: ${esc(e.message)}</p>`; }
+  }
+
+  async function loadList(id) {
+    try {
+      const data = await apiFetch('/api/lists/' + encodeURIComponent(id), { method: 'GET' });
+      state.leads = data.leads;
+      state.rowCount = data.leads.reduce((a, l) => a + 1 + (l.duplicates ? l.duplicates.length : 0), 0);
+      state.thesis = Object.assign(E.clonePreset(data.thesis.mode || 'acquisition'), data.thesis);
+      state.listName = data.name;
+      state.isSample = /sample/i.test(data.name);
+      state.domainInfo = {};
+      state.view = 'contact';
+      renderThesis();
+      rescore();
+      $('empty').hidden = true; $('board').hidden = false; $('funnel').hidden = false;
+      $('saveListBtn').disabled = false;
+      $('exportMenu').querySelector('summary').removeAttribute('aria-disabled');
+      $('listsDialog').close();
+      toast(`Opened "${data.name}".`);
+      runDomainChecks();
+    } catch (e) { toast('Could not open list: ' + e.message); }
+  }
+
+  // ------------------------------------------------------------------- misc
+
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 3800);
+  }
+
+  async function copy(text, ok) {
+    try { await navigator.clipboard.writeText(text); toast(ok); }
+    catch (e) {
+      const ta = $('opener');
+      if (ta) { ta.focus(); ta.select(); }
+      toast('Press Ctrl+C (or Cmd+C) to copy the selected text.');
+    }
+  }
+
+  function loadSample() {
+    if (!window.TRIAGE_SAMPLE_CSV) return toast('Sample data is not bundled in this build.');
+    beginImport(window.TRIAGE_SAMPLE_CSV, SAMPLE_NAME);
+  }
+
+  function bind() {
+    $('fileInput').addEventListener('change', (e) => { readFile(e.target.files[0]); e.target.value = ''; });
+    $('sampleBtn').addEventListener('click', loadSample);
+    document.querySelector('[data-action="sample"]').addEventListener('click', loadSample);
+
+    const dz = $('dropZone');
+    ['dragenter', 'dragover'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add('is-over'); }));
+    ['dragleave', 'drop'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'drop' || e.target === dz) dz.classList.remove('is-over'); }));
+    document.addEventListener('drop', (e) => { dz.classList.remove('is-over'); readFile(e.dataTransfer.files[0]); });
+
+    $('mapForm').addEventListener('submit', (e) => {
+      if (e.submitter && e.submitter.value === 'ok') {
+        if (!confirmMapping()) e.preventDefault();
+      } else state.pending = null;
+    });
+
+    $('tabs').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-view]');
+      if (!b) return;
+      state.view = b.dataset.view; state.shown = PAGE; renderTabs(); renderRows();
+    });
+    $('funnel').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-view]');
+      if (!b) return;
+      state.view = b.dataset.view; state.shown = PAGE; renderTabs(); renderRows();
+      $('board').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    let searchTimer = 0;
+    $('search').addEventListener('input', (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { state.query = e.target.value; state.shown = PAGE; renderRows(); }, 120);
+    });
+    $('moreBtn').addEventListener('click', () => { state.shown += PAGE; renderRows(); });
+    $('rows').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-id]'); if (tr) openDrawer(tr.dataset.id); });
+    $('rows').addEventListener('keydown', (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrawer(tr.dataset.id); }
+      if (e.key === 'ArrowDown' && tr.nextElementSibling) { e.preventDefault(); tr.nextElementSibling.focus(); }
+      if (e.key === 'ArrowUp' && tr.previousElementSibling) { e.preventDefault(); tr.previousElementSibling.focus(); }
+    });
+    $('scrim').addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.selected && !document.querySelector('dialog[open]')) closeDrawer(); });
+
+    $('exportMenu').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-export]');
+      if (!b) return;
+      download(b.dataset.export);
+      $('exportMenu').open = false;
+    });
+    document.addEventListener('click', (e) => { if (!e.target.closest('#exportMenu')) $('exportMenu').open = false; });
+
+    $('saveListBtn').addEventListener('click', saveList);
+    $('saveForm').addEventListener('submit', (e) => {
+      if (e.submitter && e.submitter.value === 'ok') {
+        const name = $('saveName').value.trim();
+        if (!name) { e.preventDefault(); return; }
+        doSave(name);
+      }
+    });
+    $('openListBtn').addEventListener('click', openLists);
+    $('listsBody').addEventListener('click', async (e) => {
+      const load = e.target.closest('[data-load]');
+      const del = e.target.closest('[data-del]');
+      if (load) loadList(load.dataset.load);
+      if (del) {
+        try { await apiFetch('/api/lists/' + encodeURIComponent(del.dataset.del), { method: 'DELETE' }); openLists(); }
+        catch (err) { toast('Could not delete: ' + err.message); }
+      }
+    });
+    bindThesis();
+  }
+
+  bind();
+  renderThesis();
+  checkApi();
+})();
+
+</script>
+</body>
+</html>

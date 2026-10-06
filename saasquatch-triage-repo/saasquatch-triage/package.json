@@ -1,0 +1,9 @@
+{
+  "name": "saasquatch-triage",
+  "private": true,
+  "description": "Pre-enrichment lead triage for SaaSquatch exports",
+  "scripts": {
+    "test": "node --test tests/engine.test.js",
+    "build": "python3 scripts/build.py"
+  }
+}

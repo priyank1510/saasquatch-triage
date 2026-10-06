@@ -1,0 +1,14 @@
+# One-click deploy of the API (and a same-origin copy of the frontend) on Render.
+services:
+  - type: web
+    name: triage-api
+    runtime: docker
+    plan: starter            # a persistent disk needs a paid plan; on free, saved lists reset on redeploy
+    healthCheckPath: /api/health
+    envVars:
+      - key: TRIAGE_CORS_ORIGINS
+        value: "https://YOUR-GITHUB-USERNAME.github.io"
+    disk:
+      name: triage-data
+      mountPath: /data
+      sizeGB: 1
